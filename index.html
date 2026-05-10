@@ -753,7 +753,9 @@ const ALLW=[], CW=Array.from({length:N*N},()=>[]);
 const NW=ALLW.length;
 
 // ─── 2. Score/type lookup [count][openEnds] ───────────────────────
-const WSC=[[0,0,0],[0,5,5],[0,15,150],[0,1200,5000],[0,15000,50000],[0,100000,100000]];
+// 冲四(c4)=5100 ≈ 活三(o3)=5000: 冲四只微高1%, 避免AI不停走冲四耗子; 活四=500000 >> 冲四
+// 五连(win)=10000000 >> 活四=500000: win is unconditionally above all threats
+const WSC=[[0,0,0],[0,5,5],[0,15,150],[0,1200,5000],[0,5100,500000],[0,10000000,10000000]];
 // Types: 0=none,1=c2,2=o2,3=c3,4=o3(活三),5=c4(冲四),6=o4(活四),7=five
 const WTP=[[0,0,0],[0,0,0],[0,1,2],[0,3,4],[0,5,6],[0,7,7]];
 
@@ -767,10 +769,42 @@ const UNDO=[];
 
 function cwScore(wi){
   const[r0,c0,dr,dc,lr,lc,rr,rc]=ALLW[wi];
-  let m1=0,m2=0;
-  for(let i=0;i<5;i++){const v=b1d[(r0+dr*i)*N+(c0+dc*i)];if(v===1)m1++;else if(v===2)m2++;}
+  let m1=0,m2=0,gap=-1;
+  for(let i=0;i<5;i++){
+    const v=b1d[(r0+dr*i)*N+(c0+dc*i)];
+    if(v===1) m1++;
+    else if(v===2) m2++;
+    else gap=i; // position of empty cell (last one if multiple)
+  }
   if(m1&&m2) return[0,0,0,0];
-  const lo=lr>=0&&b1d[lr*N+lc]===0,ro=rr>=0&&b1d[rr*N+rc]===0;
+  const mc=m1||m2;
+  if(!mc) return[0,0,0,0];
+  const lo=lr>=0&&b1d[lr*N+lc]===0, ro=rr>=0&&b1d[rr*N+rc]===0;
+
+  // ── Special handling for 4-stone windows ──────────────────────────
+  // gap is the one empty cell position inside the window (0..4)
+  // [_,W,W,W,W] gap=0 → contiguous 4, open ends: pos0 (gap) + ro
+  // [W,W,W,W,_] gap=4 → contiguous 4, open ends: lo + pos4 (gap)
+  // [W,_,W,W,W] gap=1,2,3 → INTERIOR gap → always closed-four (冲四)!
+  //   Opponent fills the interior gap to block; outer ends are irrelevant.
+  if(mc===4){
+    let sc,tp;
+    if(gap===0){
+      // Contiguous [_,W,W,W,W]: effectively 1 forced open end (gap) + ro
+      const oe2=1+(ro?1:0);
+      sc=WSC[4][oe2]; tp=WTP[4][oe2];
+    } else if(gap===4){
+      // Contiguous [W,W,W,W,_]: effectively lo + 1 forced open end (gap)
+      const oe2=(lo?1:0)+1;
+      sc=WSC[4][oe2]; tp=WTP[4][oe2];
+    } else {
+      // Interior gap (positions 1,2,3): broken four → always closed-four
+      sc=5100; tp=5;
+    }
+    return m1?[sc,0,tp,0]:[0,sc,0,tp];
+  }
+
+  // ── All other counts: use standard oe logic ────────────────────────
   const oe=(lo?1:0)+(ro?1:0);
   if(m1) return[WSC[m1][oe],0,WTP[m1][oe],0];
   if(m2) return[0,WSC[m2][oe],0,WTP[m2][oe]];
@@ -818,12 +852,12 @@ function apop(r,c,mark){
 // Fork-aware score pair
 function getS(){
   let s1=ts1,s2=ts2;
-  if(tc1[6]>=2)s1+=85000;   if(tc2[6]>=2)s2+=85000;
-  if(tc1[5]+tc1[6]>=2)s1+=82000; if(tc2[5]+tc2[6]>=2)s2+=82000;
-  if((tc1[5]+tc1[6])>=1&&tc1[4]>=1)s1+=42000;
-  if((tc2[5]+tc2[6])>=1&&tc2[4]>=1)s2+=42000;
-  if(tc1[4]>=2&&!forbRule)s1+=28000; if(tc2[4]>=2)s2+=28000;
-  if(tc1[4]>=3&&!forbRule)s1+=12000; if(tc2[4]>=3)s2+=12000;
+  if(tc1[6]>=2)s1+=5000000;   if(tc2[6]>=2)s2+=5000000;   // 双活四→必赢
+  if(tc1[5]+tc1[6]>=2)s1+=1000000; if(tc2[5]+tc2[6]>=2)s2+=1000000; // 双四→必赢
+  if((tc1[5]+tc1[6])>=1&&tc1[4]>=1)s1+=800000;  // 四+活三→下步双四
+  if((tc2[5]+tc2[6])>=1&&tc2[4]>=1)s2+=800000;
+  if(tc1[4]>=2&&!forbRule)s1+=300000; if(tc2[4]>=2)s2+=300000;  // 双活三
+  if(tc1[4]>=3&&!forbRule)s1+=100000; if(tc2[4]>=3)s2+=100000; // 三活三
   return[s1,s2];
 }
 
@@ -910,7 +944,7 @@ function vcf(ai,depth){
     const[s1,s2]=getS(); const aiS=ai===1?s1:s2;
     apop(r,c,mk); zhp(r,c,ai);
     if(hasO4) return p; // open-four → instant win, opponent can't block in time
-    if(has4&&aiS>=14000) fours.push([p,aiS]);
+    if(has4&&aiS>=5000) fours.push([p,aiS]);
   }
   if(!fours.length) return -1;
   fours.sort((a,b)=>b[1]-a[1]);
@@ -927,7 +961,7 @@ function vcf(ai,depth){
       const mk2=aput(br,bc,hu);
       const[ns1,ns2]=getS(); const newAiS=ai===1?ns1:ns2;
       apop(br,bc,mk2);
-      if(newAiS<14000) blocks.push(bp);
+      if(newAiS<5000) blocks.push(bp);
     }
     if(!blocks.length){ apop(r,c,mk); zhp(r,c,ai); return pos; }
 
@@ -948,7 +982,7 @@ function vcf(ai,depth){
 // ─── 8. Quiescence search (negamax) ──────────────────────────────
 function qsearch(alpha,beta,stm,qdep){
   const sp=evalStm(stm);
-  if(qdep<=0||Math.abs(sp)>=89000) return sp;
+  if(qdep<=0||Math.abs(sp)>=9000000) return sp;
   if(sp>=beta) return sp;
   if(sp>alpha) alpha=sp;
   const hu=stm===1?2:1;
@@ -965,7 +999,7 @@ function qsearch(alpha,beta,stm,qdep){
       const mk2=aput(r,c,hu);
       const[hs1,hs2]=getS(); const opGain=(stm===1?hs2:hs1)-bOp;
       apop(r,c,mk2);
-      if(opGain>=14000) pri=opGain;
+      if(opGain>=5000) pri=opGain;
     }
     if(pri>=0) forceMvs.push([p,pri]);
   }
@@ -991,7 +1025,7 @@ function pvs(depth,alpha,beta,stm,ply){
   if(Date.now()>searchDL){ timedOut=true; return alpha; }
   const hu=stm===1?2:1;
   const sp=evalStm(stm);
-  if(Math.abs(sp)>=89000) return sp>0?89000:-89000;
+  if(Math.abs(sp)>=9000000) return sp>0?9000000:-9000000;
   if(depth===0) return qsearch(alpha,beta,stm,4);
 
   // TT probe
@@ -1142,7 +1176,7 @@ function getAIMove(b_,ai,d){
       if(s>iterBest){iterBest=s;iterPos=p;}
     }
     if(anyDone) bestPos=iterPos;
-    if(iterBest>=89000) break;
+    if(iterBest>=9000000) break;
   }
 
   return[bestPos/N|0,bestPos%N];
