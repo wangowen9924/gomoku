@@ -769,45 +769,69 @@ const UNDO=[];
 
 function cwScore(wi){
   const[r0,c0,dr,dc,lr,lc,rr,rc]=ALLW[wi];
-  let m1=0,m2=0,gap=-1;
+  let m1=0,m2=0,minP=5,maxP=-1;
   for(let i=0;i<5;i++){
     const v=b1d[(r0+dr*i)*N+(c0+dc*i)];
-    if(v===1) m1++;
-    else if(v===2) m2++;
-    else gap=i; // position of empty cell (last one if multiple)
+    if(v===1){m1++;if(i<minP)minP=i;if(i>maxP)maxP=i;}
+    else if(v===2){m2++;if(i<minP)minP=i;if(i>maxP)maxP=i;}
   }
   if(m1&&m2) return[0,0,0,0];
   const mc=m1||m2;
   if(!mc) return[0,0,0,0];
+  const span=maxP-minP; // 石子跨度：连着=mc-1，越大越散
   const lo=lr>=0&&b1d[lr*N+lc]===0, ro=rr>=0&&b1d[rr*N+rc]===0;
 
-  // ── Special handling for 4-stone windows ──────────────────────────
-  // gap is the one empty cell position inside the window (0..4)
-  // [_,W,W,W,W] gap=0 → contiguous 4, open ends: pos0 (gap) + ro
-  // [W,W,W,W,_] gap=4 → contiguous 4, open ends: lo + pos4 (gap)
-  // [W,_,W,W,W] gap=1,2,3 → INTERIOR gap → always closed-four (冲四)!
-  //   Opponent fills the interior gap to block; outer ends are irrelevant.
+  // ── 4-stone: distinguish open-four vs closed-four ─────────────────
+  // span=3 → contiguous [WWWW] with one end-gap: open/closed depends on ends
+  // span<3 → impossible for mc=4; span>3 → interior gap → 冲四
   if(mc===4){
     let sc,tp;
-    if(gap===0){
-      // Contiguous [_,W,W,W,W]: effectively 1 forced open end (gap) + ro
-      const oe2=1+(ro?1:0);
-      sc=WSC[4][oe2]; tp=WTP[4][oe2];
-    } else if(gap===4){
-      // Contiguous [W,W,W,W,_]: effectively lo + 1 forced open end (gap)
-      const oe2=(lo?1:0)+1;
+    if(span===3){
+      // Contiguous four, one gap is at an end of the window
+      // Effective open ends = (gap at left end OR lo) + (gap at right end OR ro)
+      const leftOpen = (minP>0) ? lo : true; // if stones start at pos>0, pos0 is the gap (open)
+      const rightOpen= (maxP<4) ? ro : true; // if stones end at pos<4, pos4 is the gap (open)
+      const oe2=(leftOpen?1:0)+(rightOpen?1:0);
       sc=WSC[4][oe2]; tp=WTP[4][oe2];
     } else {
-      // Interior gap (positions 1,2,3): broken four → always closed-four
+      // span<3 impossible; span>3 → interior gap(s) → always 冲四
       sc=5100; tp=5;
     }
     return m1?[sc,0,tp,0]:[0,sc,0,tp];
   }
 
-  // ── All other counts: use standard oe logic ────────────────────────
+  // ── 3-stone: differentiate by span ────────────────────────────────
+  // span=2: ***   连活三/连眠三 → 100% (next move = open-four directly)
+  // span=3: **-*  跳活三/跳眠三 →  65% (need to fill gap first)
+  // span=4: **--* 散活三/散眠三 →  35% (further from threat)
+  if(mc===3){
+    const oe=(lo?1:0)+(ro?1:0);
+    const base=WSC[3][oe];
+    let sc;
+    if(span===2)      sc=base;
+    else if(span===3) sc=base*0.65|0;
+    else              sc=base*0.35|0;
+    return m1?[sc,0,WTP[3][oe],0]:[0,sc,0,WTP[3][oe]];
+  }
+
+  // ── 2-stone: differentiate by span ────────────────────────────────
+  // span=1: WW   连活二/连眠二 → 100%
+  // span=2: W_W  跳活二       →  60%
+  // span=3: W__W 散活二       →  30%
+  if(mc===2){
+    const oe=(lo?1:0)+(ro?1:0);
+    const base=WSC[2][oe];
+    let sc;
+    if(span===1)      sc=base;
+    else if(span===2) sc=base*0.60|0;
+    else              sc=base*0.30|0;
+    return m1?[sc,0,WTP[2][oe],0]:[0,sc,0,WTP[2][oe]];
+  }
+
+  // ── mc=1 ───────────────────────────────────────────────────────────
   const oe=(lo?1:0)+(ro?1:0);
-  if(m1) return[WSC[m1][oe],0,WTP[m1][oe],0];
-  if(m2) return[0,WSC[m2][oe],0,WTP[m2][oe]];
+  if(m1) return[WSC[1][oe],0,WTP[1][oe],0];
+  if(m2) return[0,WSC[1][oe],0,WTP[1][oe]];
   return[0,0,0,0];
 }
 
@@ -894,6 +918,7 @@ const MAXPLY=40;
 const KM=Array.from({length:MAXPLY},()=>[-1,-1]);
 const HT=new Int32Array(N*N);
 
+
 // ─── 6. Candidate generation ──────────────────────────────────────
 function genCands(range){
   const seen=new Uint8Array(N*N),res=[];
@@ -909,10 +934,63 @@ function genCands(range){
   return any?res:[7*N+7];
 }
 
+// pBonus: center gravity + pattern-based influence radiation
+//
+// Directly inspired by the original Java engine (Analyzer.class, 2005):
+//   FOUR(9000) THREE-open(5000) THREE-blk(801) TWO-open(800) ONE(150)
+// Ratios preserved here (÷100 scale):
+//   ts>=4→90  ts=3 open→50 blk→8  ts=2 open→8 blk→0.5  ts=1→1.5/0.3
+//
+// Key improvement over pure distance-decay: THREE extension is 6x TWO,
+// matching old engine's ratio, so AI strongly prefers developing THREE
+// patterns over TWO patterns in move ordering.
+//
+// Scan both arms per direction: allied stones accumulate (gaps transparent),
+// opponent/wall stops arm. reachMult penalises cells near walls/blockers.
+
 function pBonus(pos){
   const r=pos/N|0,c=pos%N,m=(N-1)/2;
-  return Math.max(0,10-Math.hypot(r-m,c-m))*2;
+  let bonus=Math.max(0,10-Math.hypot(r-m,c-m))*2; // center gravity
+
+  for(let d=0;d<4;d++){
+    const[dr,dc]=WDRS[d];
+    let fS=0,bS=0,fR=0,bR=0;
+
+    for(let s=1;s<=4;s++){
+      const nr=r+dr*s,nc=c+dc*s;
+      if(nr<0||nr>=N||nc<0||nc>=N) break;
+      const v=b1d[nr*N+nc];
+      if(v===2) break;
+      fR++;
+      if(v===1) fS++;
+    }
+    for(let s=1;s<=4;s++){
+      const nr=r-dr*s,nc=c-dc*s;
+      if(nr<0||nr>=N||nc<0||nc>=N) break;
+      const v=b1d[nr*N+nc];
+      if(v===2) break;
+      bR++;
+      if(v===1) bS++;
+    }
+
+    const ts=fS+bS;
+    if(!ts) continue;
+
+    const bothOpen=fR>0&&bR>0;
+    const reachMult=Math.max(0.25,(fR+bR)/8);
+
+    // Pattern weights (old code ratios: FOUR:THREE:TWO:ONE = 9000:5000:800:150)
+    let w;
+    if(ts>=4)       w=90;
+    else if(ts===3) w=bothOpen?50:8;
+    else if(ts===2) w=bothOpen?8:0.5;
+    else            w=bothOpen?1.5:0.3;
+
+    bonus+=w*reachMult;
+  }
+  return bonus;
 }
+
 
 // ─── 7. VCF Solver (Victory by Continuous Fours) ─────────────────
 let vcfDL=Infinity;
