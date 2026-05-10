@@ -571,6 +571,7 @@ vpEl.addEventListener('touchend',e=>{
 
 // ═══════════ GAME FLOW ═══════════
 function initGame(){
+  _killWorker();
   board=Array.from({length:N},()=>new Array(N).fill(0));
   curP=1;isOver=false;lastPos=null;hist=[];thinking=false;hPos=null;
   if(aiTimer){clearTimeout(aiTimer);aiTimer=null;}
@@ -637,7 +638,8 @@ function updateStatus(){
 // ═══════════ UNDO ═══════════
 function undoMove(){
   if(thinking){
-    clearTimeout(aiTimer);thinking=false;
+    _killWorker();
+    clearTimeout(aiTimer);
     ['think','mobThink'].forEach(id=>document.getElementById(id).classList.remove('on'));
   }
   if(hist.length===0) return;
@@ -661,6 +663,177 @@ function undoMove(){
   if(isMobile) zoomFit(false);
   hPos=null;render();updateStatus();
 }
+
+// ═══════════ WIN CHECK ═══════════
+function checkWin(b,r,c,color){
+  for(const[dr,dc]of DIRS){
+    let cnt=1;
+    for(let i=1;i<6;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==color)break;cnt++;}
+    for(let i=1;i<6;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==color)break;cnt++;}
+    if((forbRule&&color===1)?cnt===5:cnt>=5) return true;
+  }
+  return false;
+}
+
+// ═══════════ FORBIDDEN ═══════════
+function forbidden(b,r,c){
+  if(!forbRule||b[r][c]!==0) return null;
+  b[r][c]=1;
+  for(const[dr,dc]of DIRS){
+    let cnt=1;
+    for(let i=1;i<=5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==1)break;cnt++;}
+    for(let i=1;i<=5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==1)break;cnt++;}
+    if(cnt>=6){b[r][c]=0;return'long';}
+  }
+  let fours=0,threes=0;
+  for(const[dr,dc]of DIRS){
+    const t=dirType(b,r,c,dr,dc);
+    if(t==='four')fours++;else if(t==='three')threes++;
+  }
+  b[r][c]=0;
+  if(fours>=2) return'doubleFour';
+  if(threes>=2) return'doubleThree';
+  return null;
+}
+
+function dirType(b,r,c,dr,dc){
+  const L=[];
+  for(let i=-5;i<=5;i++){
+    const nr=r+dr*i,nc=c+dc*i;
+    L.push(nr<0||nr>=N||nc<0||nc>=N?-1:b[nr][nc]);
+  }
+  let hasFour=false,hasThree=false;
+  for(let ws=1;ws<=5;ws++){
+    const we=ws+4;
+    let mc=0,bl=false;
+    for(let i=ws;i<=we;i++){if(L[i]===1)mc++;else if(L[i]!==0){bl=true;break;}}
+    if(bl)continue;
+    if(mc===5)continue;
+    if(mc===4)hasFour=true;
+    if(mc===3){const lo=ws>0?L[ws-1]:-1,ro=we<10?L[we+1]:-1;if(lo===0&&ro===0)hasThree=true;}
+  }
+  if(!hasThree){
+    for(let ws=0;ws<=5;ws++){
+      const we=ws+5;
+      if(we>10||ws>5||we<5)continue;
+      let mc=0,bl=false;
+      for(let i=ws;i<=we;i++){if(L[i]===1)mc++;else if(L[i]!==0){bl=true;break;}}
+      if(bl||mc!==3)continue;
+      const lo=ws>0?L[ws-1]:-1,ro=we<10?L[we+1]:-1;
+      if(lo===0&&ro===0)hasThree=true;
+    }
+  }
+  return hasFour?'four':hasThree?'three':'other';
+}
+
+function fbMsg(fb){
+  return{long:'禁手：长连',doubleFour:'禁手：四四',doubleThree:'禁手：三三'}[fb]||'禁手';
+}
+
+
+// ─── WebWorker AI ────────────────────────────────────────────────
+let _aiWorker=null;
+function _getWorker(){
+  if(_aiWorker) return _aiWorker;
+  const blob=new Blob([document.getElementById('workerSrc').textContent],{type:'application/javascript'});
+  _aiWorker=new Worker(URL.createObjectURL(blob));
+  return _aiWorker;
+}
+
+function _killWorker(){
+  if(_aiWorker){_aiWorker.terminate();_aiWorker=null;}
+  thinking=false;
+}
+
+function doAI(){
+  if(isOver||curP!==aiCol) return;
+  thinking=true; updateStatus();
+  const w=_getWorker();
+  w.onmessage=function(e){
+    thinking=false;
+    doPlace(e.data.r,e.data.c,true);
+  };
+  w.postMessage({
+    type:'move',
+    board:board.map(row=>[...row]),
+    aiCol,diff,forbRule,
+    histLen:hist.length,
+    isMobile
+  });
+}
+
+
+// ═══════════ TOAST ═══════════
+let toastTmr=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  if(toastTmr)clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+function toggleMoveNums(){
+  showMoveNums=!showMoveNums;
+  const btns=document.querySelectorAll('.btn-nums');
+  btns.forEach(b=>{
+    b.textContent=showMoveNums?'隐藏步数':'显示步数';
+    b.style.borderColor=showMoveNums?'var(--gold)':'';
+    b.style.color=showMoveNums?'var(--gold)':'';
+  });
+  render();
+}
+
+// ═══════════ SETUP UI ═══════════
+function selMode(btn){
+  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');setup.mode=btn.dataset.mode;
+  const pvc=setup.mode==='pvc';
+  document.getElementById('csec').style.display=pvc?'block':'none';
+  document.getElementById('dsec').style.display=pvc?'block':'none';
+}
+function selCol(btn){
+  document.querySelectorAll('[data-col]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');setup.pCol=parseInt(btn.dataset.col);
+}
+function updDiff(v){
+  setup.diff=v;
+  document.getElementById('dval').textContent=v;
+  document.getElementById('dhint').textContent=DHINT[v]||'';
+  const pct=(v-1)/14*100;
+  document.getElementById('dslider').style.background=
+    `linear-gradient(to right,var(--gold) 0%,var(--gold) ${pct}%,var(--bdr-l) ${pct}%,var(--bdr-l) 100%)`;
+}
+function showModal(){document.getElementById('modal').style.display='flex';}
+function startGame(){
+  gMode=setup.mode;diff=setup.diff||5;
+  forbRule=document.getElementById('ftog').checked;
+  if(gMode==='pvc'){pCol=setup.pCol||1;aiCol=pCol===1?2:1;}
+  document.getElementById('imode').textContent=gMode==='pvp'?'双人对战':'人机对战';
+  document.getElementById('idrow').style.display=gMode==='pvc'?'flex':'none';
+  document.getElementById('idiff').textContent=`难度 ${diff}`;
+  document.getElementById('iforb').textContent=forbRule?'启用':'关闭';
+  document.getElementById('modal').style.display='none';
+  // Re-fit board now that modal is gone and flex layout has resolved
+  if(isMobile) requestAnimationFrame(()=>requestAnimationFrame(()=>{ zoomFit(false); initGame(); }));
+  else initGame();
+}
+
+// ═══════════ STARTUP ═══════════
+updDiff(5);
+board=Array.from({length:N},()=>new Array(N).fill(0));
+hist=[];isOver=false;lastPos=null;
+initZoom();
+render();
+showModal();
+</script>
+
+<script type="text/js-worker" id="workerSrc">
+const N=15;
+const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
+const DEPTH=[0,1,1,2,2,3,4,5,6,7,8,8,9,10,11,12];
+let board=Array.from({length:N},()=>new Array(N).fill(0));
+let forbRule=false,isMobile=false;
+let hist={length:0};
 
 // ═══════════ WIN CHECK ═══════════
 function checkWin(b,r,c,color){
@@ -1057,7 +1230,142 @@ function vcf(ai,depth){
   return -1;
 }
 
-// ─── 8. Quiescence search (negamax) ──────────────────────────────
+// ─── 8. VCT Solver (Victory by Continuous Threats — 活三链强迫赢) ───
+// VCF only sees forced-four sequences. VCT also sees open-three chains:
+//   attacker creates open-three → opponent must block extension point
+//   → attacker creates another threat → ... → eventually double-four/open-four
+//
+// Key difference from VCF:
+//   VCF threats : moves creating any FOUR
+//   VCT threats : moves creating open-THREE or better
+//   VCT defenses: ALL extension/blocking points of current threat windows
+//                 + opponent's own counter-threats (so we can't ignore them)
+
+let vctDL=Infinity;
+
+// Moves that create open-three (type=4) or any four (5,6) for ai
+function getVCTThreats(ai){
+  const threats=[];
+  for(let p=0;p<N*N;p++){
+    if(b1d[p]) continue;
+    const r=p/N|0,c=p%N;
+    if(forbRule&&ai===1&&forbidden(board,r,c)) continue;
+    const mk=aput(r,c,ai);
+    const tc=ai===1?tc1:tc2;
+    if(tc[4]>0||tc[5]>0||tc[6]>0){
+      const[s1,s2]=getS();
+      threats.push([p,ai===1?s1:s2]);
+    }
+    apop(r,c,mk);
+  }
+  return threats.sort((a,b)=>b[1]-a[1]).slice(0,12).map(([p])=>p);
+}
+
+// Moves opponent must consider after ai created threats
+function getVCTDefenses(ai,hu){
+  const wt=ai===1?wt1:wt2;
+  const defs=new Set();
+
+  // 1. Opponent immediate wins trump everything
+  for(let p=0;p<N*N;p++){
+    if(b1d[p]) continue;
+    const r=p/N|0,c=p%N;
+    const mk=aput(r,c,hu);
+    const won=checkWin(board,r,c,hu);
+    apop(r,c,mk);
+    if(won) return[p]; // only this matters
+  }
+
+  // 2. Extension/blocking points of every active threat window (type≥4)
+  //    These are the cells where attacker would extend to a four, so
+  //    defender must consider playing there first.
+  for(let w=0;w<NW;w++){
+    if(wt[w]<4) continue;
+    const[r0,c0,dr,dc,lr,lc,rr,rc]=ALLW[w];
+    // Empty cells within the 5-cell window
+    for(let i=0;i<5;i++){
+      const np=(r0+dr*i)*N+(c0+dc*i);
+      if(b1d[np]===0) defs.add(np);
+    }
+    // Extension cells just outside the window
+    if(lr>=0&&lr<N&&lc>=0&&lc<N&&b1d[lr*N+lc]===0) defs.add(lr*N+lc);
+    if(rr>=0&&rr<N&&rc>=0&&rc<N&&b1d[rr*N+rc]===0) defs.add(rr*N+rc);
+  }
+
+  // 3. Opponent's own counter-threats (near existing stones)
+  //    Opponent might ignore our threat and play their own forcing move.
+  for(const p of genCands(2)){
+    if(defs.has(p)||b1d[p]) continue;
+    const r=p/N|0,c=p%N;
+    const mk=aput(r,c,hu);
+    const tc=hu===1?tc1:tc2;
+    if(tc[4]>0||tc[5]>0||tc[6]>0) defs.add(p);
+    apop(r,c,mk);
+  }
+
+  // 4. Filter: only keep defenses that actually reduce ai's threat count
+  //    OR create opponent's own threat (counter-attack).
+  //    Caps at 15 to prevent search explosion.
+  const threatsBefore=(ai===1?wt1:wt2).reduce((s,t)=>s+(t>=4?1:0),0);
+  const filtered=[];
+  for(const p of defs){
+    if(b1d[p]) continue;
+    const r=p/N|0,c=p%N;
+    const mk=aput(r,c,hu);
+    const threatsAfter=(ai===1?wt1:wt2).reduce((s,t)=>s+(t>=4?1:0),0);
+    const huTc=hu===1?tc1:tc2;
+    const huCounter=huTc[4]>0||huTc[5]>0||huTc[6]>0;
+    apop(r,c,mk);
+    if(threatsAfter<threatsBefore||huCounter) filtered.push(p);
+    if(filtered.length>=15) break;
+  }
+  return filtered;
+}
+
+function vct(ai,depth){
+  if(depth<=0||Date.now()>vctDL) return -1;
+  const hu=ai===1?2:1;
+
+  // VCF is strictly stronger — check it first at each node
+  const savedVcfDL=vcfDL;
+  vcfDL=Math.min(Date.now()+400,vctDL);
+  const vcfResult=vcf(ai,14);
+  vcfDL=savedVcfDL;
+  if(vcfResult>=0) return vcfResult;
+
+  const threats=getVCTThreats(ai);
+  for(const pos of threats){
+    if(Date.now()>vctDL) break;
+    const r=pos/N|0,c=pos%N;
+    const mk=aput(r,c,ai); zhp(r,c,ai);
+
+    // If we just created open-four or double-four → VCF can finish it
+    const tc=ai===1?tc1:tc2;
+    if(tc[6]>0||(tc[5]+tc[6])>=2){
+      apop(r,c,mk); zhp(r,c,ai);
+      return pos;
+    }
+
+    const defs=getVCTDefenses(ai,hu);
+    let allLose=defs.length>0;
+
+    for(const defPos of defs){
+      if(Date.now()>vctDL){allLose=false;break;}
+      if(b1d[defPos]) continue;
+      const dr2=defPos/N|0,dc2=defPos%N;
+      const mk2=aput(dr2,dc2,hu); zhp(dr2,dc2,hu);
+      const result=vct(ai,depth-1);
+      apop(dr2,dc2,mk2); zhp(dr2,dc2,hu);
+      if(result<0){allLose=false;break;}
+    }
+
+    apop(r,c,mk); zhp(r,c,ai);
+    if(allLose) return pos;
+  }
+  return -1;
+}
+
+// ─── 9. Quiescence search (negamax) ──────────────────────────────
 function qsearch(alpha,beta,stm,qdep){
   const sp=evalStm(stm);
   if(qdep<=0||Math.abs(sp)>=9000000) return sp;
@@ -1199,6 +1507,12 @@ function getAIMove(b_,ai,d){
   const vcfMove=vcf(ai,d>=10?18:d>=7?14:10);
   if(vcfMove>=0) return[vcfMove/N|0,vcfMove%N];
 
+  // VCT: forced win by continuous threats (活三链 → 活四链)
+  // Finds sequences VCF misses: open-three → forced defense → another threat → ...
+  vctDL=Date.now()+(d>=10?2500:d>=7?1200:600);
+  const vctMove=vct(ai,d>=10?6:d>=7?4:3);
+  if(vctMove>=0) return[vctMove/N|0,vctMove%N];
+
   // PVS Iterative Deepening
   ttClr();
   for(let i=0;i<MAXPLY;i++){KM[i][0]=KM[i][1]=-1;}
@@ -1270,68 +1584,17 @@ function doAI(){
 }
 
 
-// ═══════════ TOAST ═══════════
-let toastTmr=null;
-function toast(msg){
-  const el=document.getElementById('toast');
-  el.textContent=msg;el.classList.add('show');
-  if(toastTmr)clearTimeout(toastTmr);
-  toastTmr=setTimeout(()=>el.classList.remove('show'),2400);
-}
-
-function toggleMoveNums(){
-  showMoveNums=!showMoveNums;
-  const btns=document.querySelectorAll('.btn-nums');
-  btns.forEach(b=>{
-    b.textContent=showMoveNums?'隐藏步数':'显示步数';
-    b.style.borderColor=showMoveNums?'var(--gold)':'';
-    b.style.color=showMoveNums?'var(--gold)':'';
-  });
-  render();
-}
-
-// ═══════════ SETUP UI ═══════════
-function selMode(btn){
-  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');setup.mode=btn.dataset.mode;
-  const pvc=setup.mode==='pvc';
-  document.getElementById('csec').style.display=pvc?'block':'none';
-  document.getElementById('dsec').style.display=pvc?'block':'none';
-}
-function selCol(btn){
-  document.querySelectorAll('[data-col]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');setup.pCol=parseInt(btn.dataset.col);
-}
-function updDiff(v){
-  setup.diff=v;
-  document.getElementById('dval').textContent=v;
-  document.getElementById('dhint').textContent=DHINT[v]||'';
-  const pct=(v-1)/14*100;
-  document.getElementById('dslider').style.background=
-    `linear-gradient(to right,var(--gold) 0%,var(--gold) ${pct}%,var(--bdr-l) ${pct}%,var(--bdr-l) 100%)`;
-}
-function showModal(){document.getElementById('modal').style.display='flex';}
-function startGame(){
-  gMode=setup.mode;diff=setup.diff||5;
-  forbRule=document.getElementById('ftog').checked;
-  if(gMode==='pvc'){pCol=setup.pCol||1;aiCol=pCol===1?2:1;}
-  document.getElementById('imode').textContent=gMode==='pvp'?'双人对战':'人机对战';
-  document.getElementById('idrow').style.display=gMode==='pvc'?'flex':'none';
-  document.getElementById('idiff').textContent=`难度 ${diff}`;
-  document.getElementById('iforb').textContent=forbRule?'启用':'关闭';
-  document.getElementById('modal').style.display='none';
-  // Re-fit board now that modal is gone and flex layout has resolved
-  if(isMobile) requestAnimationFrame(()=>requestAnimationFrame(()=>{ zoomFit(false); initGame(); }));
-  else initGame();
-}
-
-// ═══════════ STARTUP ═══════════
-updDiff(5);
-board=Array.from({length:N},()=>new Array(N).fill(0));
-hist=[];isOver=false;lastPos=null;
-initZoom();
-render();
-showModal();
+self.onmessage=function(e){
+  const d=e.data;
+  if(d.type==='move'){
+    board=d.board.map(row=>[...row]);
+    forbRule=d.forbRule;
+    isMobile=d.isMobile;
+    hist={length:d.histLen};
+    const[r,c]=getAIMove(board,d.aiCol,d.diff);
+    self.postMessage({r,c});
+  }
+};
 </script>
 </body>
 </html>
