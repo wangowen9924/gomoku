@@ -69,7 +69,7 @@
     .zoom-edge-overlay.open { display: block; }
     .zoom-place-zone {
       position: absolute;
-      inset: 54px;
+      inset: 28px;
       border: 2px dashed rgba(255,255,255,.88);
       border-radius: 16px;
       box-shadow: 0 0 0 999px rgba(0,0,0,.18);
@@ -2953,8 +2953,8 @@ function Check_H(){
       resetMobileZoom() {
         this.mobileZoomActive = false;
         if (this.canvas) {
-          this.canvas.style.transform = 'scale(1)';
-          this.canvas.style.transformOrigin = 'center center';
+          this.canvas.style.transform = 'translate3d(0,0,0) scale(1)';
+          this.canvas.style.transformOrigin = '0 0';
           this.canvas.classList.remove('mobile-zoom');
         }
         if (this.zoomOverlay) this.zoomOverlay.classList.remove('open');
@@ -2963,7 +2963,9 @@ function Check_H(){
       isInZoomPlaceZone(event) {
         if (!this.zoomOverlay) return true;
         const rect = this.zoomOverlay.getBoundingClientRect();
-        const edge = Math.min(58, Math.max(42, rect.width * 0.12));
+        // Keep a smaller cancel edge so intersections on the board border
+        // can still be tapped after zooming. The shaded edge still zooms out.
+        const edge = Math.min(34, Math.max(24, rect.width * 0.045));
         return event.clientX >= rect.left + edge && event.clientX <= rect.right - edge &&
                event.clientY >= rect.top + edge && event.clientY <= rect.bottom - edge;
       }
@@ -2971,11 +2973,24 @@ function Check_H(){
       activateMobileZoom(event) {
         const rect = this.canvas.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
-        const px = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
-        const py = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+        const scale = 2.25;
+        const tapX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+        const tapY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        // Translate the scaled board so the first tap stays near the center.
+        // Allow a little overscroll so edge intersections, including the last
+        // row/column, can move inside the dashed placement box.
+        const overscroll = rect.width * 0.18;
+        let tx = centerX - tapX * scale;
+        let ty = centerY - tapY * scale;
+        const minT = rect.width - rect.width * scale - overscroll;
+        const maxT = overscroll;
+        tx = Math.max(minT, Math.min(maxT, tx));
+        ty = Math.max(minT, Math.min(maxT, ty));
         this.mobileZoomActive = true;
-        this.canvas.style.transformOrigin = px.toFixed(2) + '% ' + py.toFixed(2) + '%';
-        this.canvas.style.transform = 'scale(2.25)';
+        this.canvas.style.transformOrigin = '0 0';
+        this.canvas.style.transform = 'translate3d(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px,0) scale(' + scale + ')';
         this.canvas.classList.add('mobile-zoom');
         if (this.zoomOverlay) this.zoomOverlay.classList.add('open');
         this.clearHoverPreview();
