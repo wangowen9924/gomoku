@@ -57,7 +57,41 @@
       border-radius: 24px;
       backdrop-filter: blur(10px);
     }
-    .board-wrap { padding: 18px; }
+    .board-wrap { padding: 18px; position: relative; overflow: hidden; }
+    .zoom-edge-overlay {
+      position: absolute;
+      inset: 18px;
+      display: none;
+      pointer-events: none;
+      border-radius: 18px;
+      z-index: 5;
+    }
+    .zoom-edge-overlay.open { display: block; }
+    .zoom-place-zone {
+      position: absolute;
+      inset: 54px;
+      border: 2px dashed rgba(255,255,255,.88);
+      border-radius: 16px;
+      box-shadow: 0 0 0 999px rgba(0,0,0,.18);
+      outline: 2px solid rgba(47,29,13,.35);
+      outline-offset: -4px;
+    }
+    .zoom-tip {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(28,27,24,.72);
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .01em;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
+    .zoom-tip.place { top: 18px; }
+    .zoom-tip.edge { bottom: 18px; background: rgba(155,95,23,.78); }
     #board {
       display: block;
       width: 100%;
@@ -67,7 +101,12 @@
       cursor: default;
       background: var(--board);
       touch-action: manipulation;
+      transform: scale(1);
+      transform-origin: center center;
+      transition: transform .18s ease, transform-origin .18s ease;
+      will-change: transform;
     }
+    #board.mobile-zoom { cursor: none; }
     #board.interactive { cursor: none; }
     .panel { padding: 20px; }
     h1 {
@@ -203,8 +242,13 @@
 </head>
 <body>
   <main class="app">
-    <section class="board-wrap">
+    <section class="board-wrap" id="boardWrap">
       <canvas id="board" width="660" height="660" aria-label="15 by 15 Gomoku board"></canvas>
+      <div id="zoomOverlay" class="zoom-edge-overlay" aria-hidden="true">
+        <div class="zoom-place-zone"></div>
+        <div class="zoom-tip place" data-i18n="zoomPlaceTip">Tap inside the dashed box to place</div>
+        <div class="zoom-tip edge" data-i18n="zoomEdgeTip">Tap the edge area to zoom out</div>
+      </div>
     </section>
     <aside class="panel">
       <h1 data-i18n="title">Gomoku</h1>
@@ -2677,7 +2721,7 @@ function Check_H(){
         startDialogHelp: 'Choose players and rule options. Close returns to the current game.',
         black: 'Black', white: 'White', gameOver: 'Game over.', toMove: '{color} to move ({mode}).', thinking: '{color} computer is thinking...',
         wins: '{color} wins!', draw: 'Draw: the board is full.', forbiddenMove: 'Forbidden move', forbiddenTitle: 'Forbidden Move', forbiddenDoubleThree: 'double-three', forbiddenDoubleFour: 'double-four', forbiddenOverline: 'overline', ok: 'OK', noCandidates: 'No weighted candidates yet.',
-        stampWin: 'WIN', stampLoss: 'LOSS', stampDraw: 'DRAW'
+        stampWin: 'WIN', stampLoss: 'LOSS', stampDraw: 'DRAW', zoomPlaceTip: 'Tap inside the dashed box to place', zoomEdgeTip: 'Tap the edge area to zoom out'
       },
       zh: {
         title: '五子棋', languageLabel: '语言', languageEnglish: 'English', languageChinese: '中文', selectedOptions: '当前对局设置', statusNotStarted: '请点击“开始游戏”。',
@@ -2690,7 +2734,7 @@ function Check_H(){
         startDialogHelp: '选择玩家和规则设置。关闭窗口会返回当前对局。',
         black: '黑棋', white: '白棋', gameOver: '游戏结束。', toMove: '{color}走棋（{mode}）。', thinking: '{color}电脑思考中……',
         wins: '{color}获胜！', draw: '和棋：棋盘已满。', forbiddenMove: '禁手', forbiddenTitle: '禁手', forbiddenDoubleThree: '三三禁手', forbiddenDoubleFour: '四四禁手', forbiddenOverline: '长连禁手', ok: '确定', noCandidates: '暂无可显示的权重点。',
-        stampWin: '胜利', stampLoss: '失败', stampDraw: '和棋'
+        stampWin: '胜利', stampLoss: '失败', stampDraw: '和棋', zoomPlaceTip: '点击虚线框内落子', zoomEdgeTip: '点击边缘区域缩小'
       }
     };
     function detectInitialLang() {
@@ -2725,6 +2769,8 @@ function Check_H(){
     class BrowserGame {
       constructor() {
         this.canvas = document.getElementById('board');
+        this.boardWrap = document.getElementById('boardWrap');
+        this.zoomOverlay = document.getElementById('zoomOverlay');
         this.ctx = this.canvas.getContext('2d');
         this.statusEl = document.getElementById('status');
         this.moveCountEl = document.getElementById('moveCount');
@@ -2777,6 +2823,9 @@ function Check_H(){
         this.aiThinking = false;
         this.hoverIntersection = null;
         this.hoverPointer = null;
+        this.mobileZoomActive = false;
+        this.lastTouchTime = 0;
+        this.resetMobileZoom();
       }
 
       bind() {
@@ -2793,6 +2842,7 @@ function Check_H(){
         this.startDialog.addEventListener('click', (event) => { if (event.target === this.startDialog) this.closeStartDialog(); });
         if (this.messageOk) this.messageOk.addEventListener('click', () => this.closeMessageDialog());
         if (this.messageDialog) this.messageDialog.addEventListener('click', (event) => { if (event.target === this.messageDialog) this.closeMessageDialog(); });
+        this.canvas.addEventListener('pointerdown', (event) => this.handlePointerDown(event));
         this.canvas.addEventListener('click', (event) => this.handleClick(event));
         this.canvas.addEventListener('mousemove', (event) => this.handleMouseMove(event));
         this.canvas.addEventListener('mouseleave', () => this.clearHoverPreview());
@@ -2896,6 +2946,71 @@ function Check_H(){
         return this.gameStarted && !this.endofGame && !this.aiThinking && this.getPlayer(this.currentColor()) === HUMAN;
       }
 
+      isTouchLikeEvent(event) {
+        return event && (event.pointerType === 'touch' || event.pointerType === 'pen');
+      }
+
+      resetMobileZoom() {
+        this.mobileZoomActive = false;
+        if (this.canvas) {
+          this.canvas.style.transform = 'scale(1)';
+          this.canvas.style.transformOrigin = 'center center';
+          this.canvas.classList.remove('mobile-zoom');
+        }
+        if (this.zoomOverlay) this.zoomOverlay.classList.remove('open');
+      }
+
+      isInZoomPlaceZone(event) {
+        if (!this.zoomOverlay) return true;
+        const rect = this.zoomOverlay.getBoundingClientRect();
+        const edge = Math.min(58, Math.max(42, rect.width * 0.12));
+        return event.clientX >= rect.left + edge && event.clientX <= rect.right - edge &&
+               event.clientY >= rect.top + edge && event.clientY <= rect.bottom - edge;
+      }
+
+      activateMobileZoom(event) {
+        const rect = this.canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const px = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+        const py = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+        this.mobileZoomActive = true;
+        this.canvas.style.transformOrigin = px.toFixed(2) + '% ' + py.toFixed(2) + '%';
+        this.canvas.style.transform = 'scale(2.25)';
+        this.canvas.classList.add('mobile-zoom');
+        if (this.zoomOverlay) this.zoomOverlay.classList.add('open');
+        this.clearHoverPreview();
+      }
+
+      handlePointerDown(event) {
+        if (!this.isTouchLikeEvent(event)) return;
+        if (!this.isHumanTurnInteractive()) return;
+        event.preventDefault();
+        this.lastTouchTime = Date.now();
+        if (!this.mobileZoomActive) {
+          const info = this.getPointerInfo(event);
+          if (info) this.activateMobileZoom(event);
+          return;
+        }
+        const shouldPlace = this.isInZoomPlaceZone(event);
+        if (!shouldPlace) {
+          this.resetMobileZoom();
+          this.clearHoverPreview();
+          return;
+        }
+        const hit = this.getPointerIntersection(event);
+        this.resetMobileZoom();
+        this.clearHoverPreview();
+        if (!hit) return;
+        const { row, col } = hit;
+        if (this.GetStoneColor(row, col) >= 0) return;
+        if (this.isForbiddenMove(row, col, this.currentColor())) {
+          const reason = this.forbiddenReason(row, col, this.currentColor());
+          this.showMessageDialog(tr('forbiddenTitle'), tr('forbiddenMove') + (reason ? ': ' + reason : ''));
+          return;
+        }
+        this.humanMove(row, col);
+      }
+
       getPointerInfo(event) {
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
@@ -2939,6 +3054,8 @@ function Check_H(){
       }
 
       handleClick(event) {
+        if (Date.now() - this.lastTouchTime < 700) return;
+        if (this.mobileZoomActive) { this.resetMobileZoom(); return; }
         if (!this.isHumanTurnInteractive()) return;
         const hit = this.getPointerIntersection(event);
         if (!hit) return;
