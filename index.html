@@ -1,1600 +1,3594 @@
-<!DOCTYPE html>
-<html lang="zh">
+<!doctype html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>五子棋 · Gomoku</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --gold:#c9a227;--gold-l:#e8c84a;--gold-d:#8a6c12;
-  --bg:#0c0905;--surf:#141108;--bdr:#2a2010;--bdr-l:#3a3020;
-  --tx:#d0bf9a;--tx-d:#6a5a3a;--red:#c94040;
-}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gomoku / 五子棋</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f1e7;
+      --panel: rgba(255,255,255,.82);
+      --ink: #1c1b18;
+      --muted: #6f6658;
+      --accent: #9b5f17;
+      --accent2: #c0392b;
+      --board: #dea84f;
+      --line: #3b2714;
+      --shadow: 0 18px 45px rgba(39, 24, 7, .18);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #17130e;
+        --panel: rgba(34,28,20,.9);
+        --ink: #f7efe2;
+        --muted: #c6bcae;
+        --accent: #f0b45d;
+        --board: #c88e3c;
+        --line: #241305;
+        --shadow: 0 18px 45px rgba(0,0,0,.34);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 15%, rgba(255,210,126,.32), transparent 30%),
+        radial-gradient(circle at 85% 10%, rgba(155,95,23,.18), transparent 24%),
+        var(--bg);
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+    .app {
+      width: min(1120px, 100%);
+      display: grid;
+      grid-template-columns: minmax(320px, 660px) minmax(280px, 360px);
+      gap: 22px;
+      align-items: start;
+    }
+    .board-wrap, .panel {
+      background: var(--panel);
+      border: 1px solid rgba(80, 55, 20, .16);
+      box-shadow: var(--shadow);
+      border-radius: 24px;
+      backdrop-filter: blur(10px);
+    }
+    .board-wrap { padding: 18px; }
+    #board {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      border-radius: 18px;
+      cursor: default;
+      background: var(--board);
+      touch-action: manipulation;
+    }
+    #board.interactive { cursor: none; }
+    .panel { padding: 20px; }
+    h1 {
+      margin: 0 0 4px;
+      font-size: clamp(24px, 4vw, 34px);
+      letter-spacing: -0.03em;
+    }
+    .subtitle { margin: 0 0 18px; color: var(--muted); line-height: 1.4; }
+    .status {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(155,95,23,.12);
+      border: 1px solid rgba(155,95,23,.18);
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .row { display: grid; gap: 8px; margin: 14px 0; }
+    label { font-size: 13px; color: var(--muted); font-weight: 700; }
+    select, button {
+      width: 100%;
+      border: 1px solid rgba(80,55,20,.22);
+      border-radius: 14px;
+      padding: 11px 12px;
+      font: inherit;
+      background: rgba(255,255,255,.82);
+      color: #1c1b18;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 800;
+      background: linear-gradient(180deg, #fff7e8, #ead0a6);
+      transition: transform .08s ease, filter .15s ease;
+    }
+    button:hover { filter: brightness(1.03); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: linear-gradient(180deg, #ffd991, #d78b25); color: #1e1308; }
+    button.danger { background: linear-gradient(180deg, #fff3f0, #efb4aa); }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .secondary-buttons { margin-top: 10px; }
+    .buttons .wide { grid-column: 1 / -1; }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 16px 0;
+    }
+    .metric {
+      padding: 11px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.45);
+      border: 1px solid rgba(80,55,20,.12);
+    }
+    .metric b { display:block; font-size: 20px; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    details {
+      border-top: 1px solid rgba(80,55,20,.16);
+      margin-top: 16px;
+      padding-top: 14px;
+      color: var(--muted);
+      line-height: 1.48;
+    }
+    summary { cursor: pointer; color: var(--ink); font-weight: 800; }
+    .top-list {
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--muted);
+      max-height: 180px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .top-list div {
+      display:flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(80,55,20,.08);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(155,95,23,.12);
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
 
-/* ══ GLOBAL ══ */
-body{
-  background:var(--bg);color:var(--tx);
-  font-family:'Noto Serif SC',serif;
-  height:100dvh;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-}
-body::after{
-  content:'';position:fixed;inset:0;
-  background:radial-gradient(ellipse 60% 60% at 30% 30%,rgba(201,162,39,.05) 0%,transparent 100%);
-  pointer-events:none;
-}
+    .option-summary {
+      display: grid;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.45);
+      border: 1px solid rgba(80,55,20,.12);
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+    .option-summary div { display:flex; justify-content:space-between; gap: 12px; }
+    .option-summary b { color: var(--ink); }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,.38);
+      z-index: 20;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-card {
+      width: min(460px, 100%);
+      padding: 20px;
+      border-radius: 22px;
+      background: var(--panel);
+      color: var(--ink);
+      border: 1px solid rgba(80,55,20,.22);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .modal-card h2 { margin: 0 0 8px; }
+    .modal-card p { margin: 0 0 12px; color: var(--muted); }
+    .config-row { display: none; }
 
-/* ══ DESKTOP LAYOUT ══ */
-.app{display:flex;gap:20px;align-items:flex-start;z-index:1;padding:16px}
-
-/* ── Board viewport: clipping container for zoom ── */
-.board-viewport{position:relative;overflow:hidden;flex-shrink:0}
-
-/* ── Transform target: moves + scales inside viewport ── */
-.board-twrap{
-  position:absolute;top:0;left:0;
-  transform-origin:0 0;
-  will-change:transform;
-}
-.board-twrap.animated{transition:transform .3s cubic-bezier(.4,0,.2,1)}
-
-canvas#board{display:block}
-
-/* ── Win overlay ── */
-.winov{
-  position:absolute;inset:0;background:rgba(0,0,0,.75);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity .5s;
-}
-.winov.show{opacity:1;pointer-events:all}
-.winbig{
-  font-family:'Cinzel',serif;font-size:2.2rem;color:var(--gold);letter-spacing:6px;
-  text-shadow:0 0 30px rgba(201,162,39,.8);margin-bottom:6px;text-align:center;
-}
-.winsm{font-size:.7rem;color:var(--tx-d);letter-spacing:4px}
-
-/* ── Zoom hint (mobile only, inside board-viewport) ── */
-.zoom-hint{
-  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
-  font-size:.62rem;color:rgba(201,162,39,.55);letter-spacing:2px;
-  pointer-events:none;white-space:nowrap;
-  transition:opacity .35s;z-index:5;
-}
-.zoom-hint.hidden{opacity:0}
-
-/* ══ DESKTOP PANEL ══ */
-.panel{width:216px;display:flex;flex-direction:column;gap:14px;flex-shrink:0}
-.ptitle{font-family:'Cinzel',serif;font-size:1.75rem;color:var(--gold);letter-spacing:5px;text-align:center}
-.psub{font-size:.6rem;letter-spacing:6px;color:var(--tx-d);text-align:center;margin-top:-10px;text-transform:uppercase}
-.card{background:var(--surf);border:1px solid var(--bdr);padding:12px 14px}
-.clabel{font-size:.6rem;letter-spacing:3px;color:var(--tx-d);text-transform:uppercase;margin-bottom:10px}
-.stext{font-size:.88rem;text-align:center;line-height:1.7;min-height:1.7em}
-.think{font-size:.75rem;color:var(--gold);text-align:center;display:none}
-.think.on{display:block;animation:blink 1.1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
-.pip{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;margin-right:5px}
-.pb{background:radial-gradient(circle at 35% 35%,#555,#111);box-shadow:1px 2px 3px rgba(0,0,0,.6)}
-.pw{background:radial-gradient(circle at 35% 35%,#fff,#c0b8a8);box-shadow:1px 2px 3px rgba(0,0,0,.4)}
-.srow{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:.83rem}
-.sval{font-size:1.1rem;color:var(--gold)}
-.irow{display:flex;justify-content:space-between;font-size:.74rem;padding:3px 0;color:var(--tx-d)}
-.ival{color:var(--tx)}
-.btn{display:block;width:100%;padding:9px;border:1px solid var(--gold-d);background:transparent;
-  color:var(--gold);font-family:'Noto Serif SC',serif;font-size:.82rem;letter-spacing:2px;
-  cursor:pointer;transition:.2s}
-.btn:hover{background:var(--gold);color:#100d06}
-.btn.sec{border-color:var(--bdr-l);color:var(--tx-d)}
-.btn.sec:hover{border-color:var(--gold-d);color:var(--gold);background:transparent}
-.bgrp{display:flex;flex-direction:column;gap:8px}
-
-/* ══ MOBILE ══ */
-.mob-header,.mob-bar{display:none}
-
-@media (max-width:700px){
-  body{align-items:stretch;justify-content:stretch}
-
-  .app{
-    flex-direction:column;padding:0;gap:0;
-    width:100vw;height:100dvh;
-  }
-
-  /* Top bar */
-  .mob-header{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:0 14px;height:44px;flex-shrink:0;
-    background:var(--surf);border-bottom:1px solid var(--bdr);
-  }
-  .mob-title{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold);letter-spacing:4px}
-  .mob-think{font-size:.65rem;color:var(--gold);letter-spacing:1px;display:none}
-  .mob-think.on{display:block;animation:blink 1.1s infinite}
-  .mob-turn{font-size:.82rem;color:var(--tx-d)}
-
-  /* Board fills remaining space */
-  .board-viewport{flex:1 1 auto;width:100vw}
-
-  /* Desktop panel gone */
-  .panel{display:none}
-
-  /* Bottom bar */
-  .mob-bar{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:0 14px;gap:10px;height:58px;flex-shrink:0;
-    background:var(--surf);border-top:1px solid var(--bdr);
-  }
-  .mob-status{flex:1;font-size:.78rem;line-height:1.4;color:var(--tx)}
-  .mob-btns{display:flex;gap:8px}
-  .mob-btn{
-    padding:7px 16px;border:1px solid var(--gold-d);background:transparent;
-    color:var(--gold);font-family:'Noto Serif SC',serif;
-    font-size:.76rem;letter-spacing:1px;cursor:pointer;white-space:nowrap;
-  }
-  .mob-btn.sec{border-color:var(--bdr-l);color:var(--tx-d)}
-  .winbig{font-size:1.5rem}
-  canvas#board{box-shadow:none !important}
-}
-
-/* ══ TOAST ══ */
-.toast{
-  position:fixed;bottom:70px;left:50%;
-  transform:translateX(-50%) translateY(10px);
-  background:rgba(18,12,6,.97);border:1px solid var(--red);color:var(--red);
-  padding:9px 20px;font-size:.82rem;letter-spacing:1px;
-  opacity:0;transition:.3s;pointer-events:none;z-index:500;
-}
-@media(min-width:701px){.toast{bottom:22px}}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* ══ MODAL ══ */
-.mbg{
-  position:fixed;inset:0;background:rgba(0,0,0,.9);
-  display:flex;align-items:center;justify-content:center;z-index:200;
-}
-.modal{
-  background:var(--surf);border:1px solid var(--gold-d);
-  padding:30px 26px;width:356px;max-width:92vw;
-  max-height:90dvh;overflow-y:auto;
-}
-.modal h2{font-family:'Cinzel',serif;font-size:1.25rem;color:var(--gold);
-  text-align:center;letter-spacing:4px;margin-bottom:22px}
-.msec{margin-bottom:17px}
-.mlabel{font-size:.62rem;letter-spacing:3px;color:var(--tx-d);text-transform:uppercase;margin-bottom:8px}
-.mbtns{display:flex;gap:8px}
-.mb{flex:1;padding:8px 4px;border:1px solid var(--bdr-l);background:transparent;
-  color:var(--tx-d);font-family:'Noto Serif SC',serif;font-size:.82rem;cursor:pointer;transition:.2s}
-.mb.on{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.08)}
-.slider{width:100%;-webkit-appearance:none;height:2px;background:var(--bdr-l);
-  outline:none;border-radius:1px;cursor:pointer}
-.slider::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
-  border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid var(--bg)}
-.dval{text-align:center;font-size:1.3rem;color:var(--gold);margin:6px 0 2px}
-.dhint{text-align:center;font-size:.68rem;color:var(--tx-d)}
-.dends{display:flex;justify-content:space-between;font-size:.6rem;color:var(--tx-d);margin-top:4px}
-.trow{display:flex;justify-content:space-between;align-items:center;font-size:.83rem}
-.tog{position:relative;width:40px;height:21px}
-.tog input{opacity:0;width:0;height:0}
-.tsl{position:absolute;inset:0;background:var(--bdr-l);border-radius:11px;cursor:pointer;transition:.2s}
-.tsl::before{content:'';position:absolute;width:15px;height:15px;left:3px;top:3px;
-  background:var(--tx-d);border-radius:50%;transition:.2s}
-.tog input:checked+.tsl{background:rgba(201,162,39,.25)}
-.tog input:checked+.tsl::before{transform:translateX(19px);background:var(--gold)}
-.mstart{display:block;width:100%;padding:13px;margin-top:8px;
-  border:1px solid var(--gold);background:rgba(201,162,39,.08);color:var(--gold);
-  font-family:'Cinzel',serif;font-size:.92rem;letter-spacing:5px;cursor:pointer;transition:.2s}
-.mstart:hover{background:var(--gold);color:#100d06}
-</style>
+    @media (max-width: 900px) {
+      body { padding: 12px; }
+      .app { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
+  <main class="app">
+    <section class="board-wrap">
+      <canvas id="board" width="660" height="660" aria-label="15 by 15 Gomoku board"></canvas>
+    </section>
+    <aside class="panel">
+      <h1 data-i18n="title">Gomoku</h1>
+      <div id="status" class="status" data-i18n="statusNotStarted">Click Start Game.</div>
+      <div class="row language-row">
+        <label for="languageSelect" data-i18n="languageLabel">Language</label>
+        <select id="languageSelect">
+          <option value="en" data-i18n="languageEnglish">English</option>
+          <option value="zh" data-i18n="languageChinese">中文</option>
+        </select>
+      </div>
+      <div class="option-summary" data-i18n-aria-label="selectedOptions" aria-label="Selected game options">
+        <div><span data-i18n="blackLabel">Black / Player 1</span><b id="blackSummary">Human</b></div>
+        <div><span data-i18n="whiteLabel">White / Player 2</span><b id="whiteSummary">Computer</b></div>
+        <div><span data-i18n="forbiddenLabel">Forbidden moves</span><b id="forbiddenSummary">Off</b></div>
+      </div>
 
-<!-- MODAL -->
-<div class="mbg" id="modal">
-  <div class="modal">
-    <h2>对 局 设 置</h2>
-    <div class="msec">
-      <div class="mlabel">对战模式</div>
-      <div class="mbtns">
-        <button class="mb on" data-mode="pvc" onclick="selMode(this)">人机对战</button>
-        <button class="mb" data-mode="pvp" onclick="selMode(this)">双人对战</button>
+      <div class="row config-row">
+        <label for="blackMode" data-i18n="blackLabel">Black / Player 1</label>
+        <select id="blackMode">
+          <option value="human" selected data-i18n="human">Human</option>
+          <option value="computer" data-i18n="computer">Computer</option>
+        </select>
+      </div>
+      <div class="row config-row">
+        <label for="whiteMode" data-i18n="whiteLabel">White / Player 2</label>
+        <select id="whiteMode">
+          <option value="human" data-i18n="human">Human</option>
+          <option value="computer" selected data-i18n="computer">Computer</option>
+        </select>
+      </div>
+      <div class="row config-row">
+        <label for="forbiddenRules" data-i18n="forbiddenLabel">Forbidden moves</label>
+        <select id="forbiddenRules">
+          <option value="off" selected data-i18n="forbiddenOff">Off</option>
+          <option value="on" data-i18n="forbiddenOn">On - Black double-three, double-four, overline forbidden</option>
+        </select>
+      </div>
+
+      <div class="buttons">
+        <button id="start" class="primary" data-i18n="startGame">Start Game</button>
+        <button id="undo" data-i18n="undo">Undo</button>
+        <button id="hint" data-i18n="showWeights">Show AI Weights</button>
+        <button id="reset" class="danger" data-i18n="clearBoard">Clear Board</button>
+        <button id="clearHint" style="display:none" data-i18n="hideWeights">Hide AI Weights</button>
+      </div>
+      <div class="buttons secondary-buttons">
+        <button id="showSteps" data-i18n="showSteps">Show Steps</button>
+        <button id="saveGame" data-i18n="saveGame">Save Game</button>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><b id="moveCount">0</b><span data-i18n="movesPlayed">moves played</span></div>
+        <div class="metric"><b id="lastMove">—</b><span data-i18n="lastMove">last move</span></div>
+      </div>
+
+      <div id="topWeights" class="top-list"></div>
+
+      <details>
+        <summary data-i18n="rulesTitle">Rules</summary>
+        <p data-i18n="rulesText">Board size is 15×15. Black moves first. The game ends when either color has five consecutive stones horizontally, vertically, or diagonally. Optional Renju-style forbidden-move rules prevent Black from playing double-three, double-four, or overline.</p>
+      </details>
+      <details>
+        <summary data-i18n="aboutTitle">About</summary>
+        <p data-i18n="aboutText">Originally developed by Kai as a college Java programming project in 2009. Ported to the web in 2026.</p>
+      </details>
+    </aside>
+  </main>
+  <div id="startDialog" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="startDialogTitle">
+    <div class="modal-card">
+      <h2 id="startDialogTitle" data-i18n="startGame">Start Game</h2>
+      <p data-i18n="startDialogHelp">Choose players and rule options. Close returns to the current game.</p>
+      <div class="row">
+        <label for="dialogBlackMode" data-i18n="blackLabel">Black / Player 1</label>
+        <select id="dialogBlackMode">
+          <option value="human" data-i18n="human">Human</option>
+          <option value="computer" data-i18n="computer">Computer</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="dialogWhiteMode" data-i18n="whiteLabel">White / Player 2</label>
+        <select id="dialogWhiteMode">
+          <option value="human" data-i18n="human">Human</option>
+          <option value="computer" data-i18n="computer">Computer</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="dialogForbiddenRules" data-i18n="forbiddenLabel">Forbidden moves</label>
+        <select id="dialogForbiddenRules">
+          <option value="off" data-i18n="forbiddenOff">Off</option>
+          <option value="on" data-i18n="forbiddenOn">On - Black double-three, double-four, overline forbidden</option>
+        </select>
+      </div>
+      <div class="buttons">
+        <button id="startConfirm" class="primary" data-i18n="startNewGame">Start New Game</button>
+        <button id="startCancel" data-i18n="close">Close</button>
       </div>
     </div>
-    <div class="msec" id="csec" style="display:block">
-      <div class="mlabel">执棋颜色</div>
-      <div class="mbtns">
-        <button class="mb on" data-col="1" onclick="selCol(this)">⚫ 黑棋（先手）</button>
-        <button class="mb" data-col="2" onclick="selCol(this)">⚪ 白棋（后手）</button>
+  </div>
+
+  <div id="messageDialog" class="modal-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="messageDialogTitle">
+    <div class="modal-card">
+      <h2 id="messageDialogTitle"></h2>
+      <p id="messageDialogBody"></p>
+      <div class="buttons">
+        <button id="messageOk" class="primary">OK</button>
       </div>
     </div>
-    <div class="msec" id="dsec" style="display:block">
-      <div class="mlabel">AI 难度</div>
-      <input type="range" class="slider" id="dslider" min="1" max="15" value="5"
-             oninput="updDiff(+this.value)">
-      <div class="dends"><span>入门</span><span>中级</span><span>大师</span><span>宗师</span></div>
-      <div class="dval" id="dval">5</div>
-      <div class="dhint" id="dhint">前瞻 3 步</div>
-    </div>
-    <div class="msec">
-      <div class="trow">
-        <span>黑棋禁手规则</span>
-        <label class="tog"><input type="checkbox" id="ftog"><span class="tsl"></span></label>
-      </div>
-    </div>
-    <button class="mstart" onclick="startGame()">开 始 对 局</button>
-  </div>
-</div>
-
-<!-- GAME -->
-<div class="app">
-
-  <div class="mob-header">
-    <span class="mob-title">五子棋</span>
-    <span class="mob-think" id="mobThink">✦ AI 思考中 ✦</span>
-    <span class="mob-turn" id="mobTurn"></span>
   </div>
 
-  <div class="board-viewport" id="boardViewport">
-    <div class="board-twrap" id="boardTwrap">
-      <canvas id="board"></canvas>
-      <div class="winov" id="winov">
-        <div class="winbig" id="winbig"></div>
-        <div class="winsm" id="winsm"></div>
-      </div>
-    </div>
-    <div class="zoom-hint hidden" id="zoomHint">点击棋盘放大 · 再次点击落子 · 点击边缘缩小</div>
-  </div>
+  <script>
 
-  <div class="panel">
-    <div>
-      <div class="ptitle">五子棋</div>
-      <div class="psub">Gomoku</div>
-    </div>
-    <div class="card">
-      <div class="clabel">当前状态</div>
-      <div class="stext" id="stext">等待开局</div>
-      <div class="think" id="think">✦ AI 思考中 ✦</div>
-    </div>
-    <div class="card">
-      <div class="clabel">战绩</div>
-      <div class="srow"><span><span class="pip pb"></span>黑棋</span><span class="sval" id="scb">0</span></div>
-      <div class="srow"><span><span class="pip pw"></span>白棋</span><span class="sval" id="scw">0</span></div>
-    </div>
-    <div class="card">
-      <div class="clabel">对局信息</div>
-      <div class="irow"><span>模式</span><span class="ival" id="imode">-</span></div>
-      <div class="irow" id="idrow" style="display:none"><span>AI难度</span><span class="ival" id="idiff">-</span></div>
-      <div class="irow"><span>禁手</span><span class="ival" id="iforb">-</span></div>
-      <div class="irow"><span>手数</span><span class="ival" id="imoves">0</span></div>
-    </div>
-    <div class="bgrp">
-      <button class="btn" onclick="showModal()">新　局</button>
-      <button class="btn sec" onclick="undoMove()">悔　棋</button>
-      <button class="btn sec btn-nums" onclick="toggleMoveNums()">显示步数</button>
-    </div>
-  </div>
+var BOARD_SIZE = 15;
+var BLACK = 0;
+var WHITE = 1;
+var UNSET = -1;
+var FOUR=100;
+var TWO_TWO=99;
+var THREE_ONE=98;
+var ONE_THREE=97;
+var THREE=85;
+var TWO_ONE=83;
+var ONE_TWO=80;
+var TWO=75;
+var ONE_ONE=73;
+var ONE__ONE=72;
+var FOURWEIGHT=9000;
+var THREE_ONEWEIGHT=9000;
+var ONE_THREEWEIGHT=9000;
+var THREEWEIGHT=5000;
+var BLKTHREEWEIGHT=801;
+var TWOWEIGHT=800;
+var SEMITWOWEIGHT=780;
+var BLKTWOWEIGHT=50;
+var ONEWEIGHT=150;
+var TWO_TWOWEIGHT=9000;
+var ATTACK=10;
+var ATTACK_FOUR=9000;
+var ATTACK_THREE=1000;
+var System = { out: { print(){}, println(){} } };
 
-  <div class="mob-bar">
-    <div class="mob-status" id="mobStatus">等待开局</div>
-    <div class="mob-btns">
-      <button class="mob-btn sec btn-nums" onclick="toggleMoveNums()">步数</button>
-      <button class="mob-btn sec" onclick="undoMove()">悔棋</button>
-      <button class="mob-btn" onclick="showModal()">新局</button>
-    </div>
-  </div>
+function runOriginalAnalyzer(gameApp){
+  let stone = Array.from({length: BOARD_SIZE}, (_, row) =>
+    Array.from({length: BOARD_SIZE}, (_, col) => gameApp.GetStones()[row][col].GetColor())
+  );
 
-</div>
-<div class="toast" id="toast"></div>
+	
+	function GetStoneColor(row, col){
+		return stone[row][col];
+	}
+	
+	function SetStoneColor(row, col, color){
+		stone[row][col]=color;
+	}
+	
+	function Test(){ }
 
-<script>
-'use strict';
+function Check_H(){
+		/*
+		 * Check situations in H direction
+		 */
+		Check_H_pattern(4,1,2,ONE__ONE);
+		Check_H_pattern(3,1,5,ONE_ONE);
+		Check_H_pattern(2,5,5,TWO);
+		Check_H_pattern(3,5,5,THREE);
+		Check_H_pattern(4,2,5,TWO_ONE);
+		Check_H_pattern(4,1,5,ONE_TWO);
+		Check_H_pattern(4,5,5,FOUR);
+		Check_H_pattern(5,1,5,ONE_THREE);
+		Check_H_pattern(5,3,5,THREE_ONE);
+		Check_H_pattern(5,2,5,TWO_TWO);
+		Check_Single_H();
+	}
+	
+	function Check_V(){
+		/*
+		 * Check situations in V direction
+		 */
+		Check_V_pattern(4,1,2,ONE__ONE);
+		Check_V_pattern(3,1,5,ONE_ONE);
+		Check_V_pattern(2,5,5,TWO);
+		Check_V_pattern(3,5,5,THREE);
+		Check_V_pattern(4,2,5,TWO_ONE);
+		Check_V_pattern(4,1,5,ONE_TWO);
+		Check_V_pattern(4,5,5,FOUR);
+		Check_V_pattern(5,1,5,ONE_THREE);
+		Check_V_pattern(5,3,5,THREE_ONE);
+		Check_V_pattern(5,2,5,TWO_TWO);
+		Check_Single_V();
+		
+	}
+	function Check_D1(){
+		/*
+		 * Check situations in Diag1 direction
+		 */
+		Check_D1_pattern(4,1,2,ONE__ONE);
+		Check_D1_pattern(3,1,5,ONE_ONE);
+		Check_D1_pattern(2,5,5,TWO);
+		Check_D1_pattern(3,5,5,THREE);
+		Check_D1_pattern(4,2,5,TWO_ONE);
+		Check_D1_pattern(4,1,5,ONE_TWO);
+		Check_D1_pattern(4,5,5,FOUR);
+		Check_D1_pattern(5,1,5,ONE_THREE);
+		Check_D1_pattern(5,3,5,THREE_ONE);
+		Check_D1_pattern(5,2,5,TWO_TWO);
+		Check_Single_D1();
+	}
+	function Check_D2(){
+		/*
+		 * Check situations in Diag2 direction
+		 */
+		Check_D2_pattern(4,1,2,ONE__ONE);
+		Check_D2_pattern(3,1,5,ONE_ONE);
+		Check_D2_pattern(2,5,5,TWO);
+		Check_D2_pattern(3,5,5,THREE);
+		Check_D2_pattern(4,2,5,TWO_ONE);
+		Check_D2_pattern(4,1,5,ONE_TWO);
+		Check_D2_pattern(4,5,5,FOUR);
+		Check_D2_pattern(5,1,5,ONE_THREE);
+		Check_D2_pattern(5,3,5,THREE_ONE);
+		Check_D2_pattern(5,2,5,TWO_TWO);
+		Check_Single_D2();
+	}
+	function Go(){
+		/*
+		 * Check situations in each direction
+		 */
+		Check_H();
+		Check_V();
+		Check_D1();
+		Check_D2();
+		Test();			//Print out test board
+	}
+	
+	function Check_H_pattern(length, broke, broke2, type){
+		/*
+		 * Check stones in a row in the horizontal direction
+		 * broke indicate the position of the point that is missing a stone
+		 * For example: In three-one situation "xxx-x", length is 5, broke is the position of o, which is 3(start counting from 0)
+		 * If broke is larger then length, it means never broke in the middle
+		 */
+		let color;
+		for(let row=0;row<BOARD_SIZE;++row){
+			for(let col=0;col<BOARD_SIZE-length+1;++col)
+				if(stone[row][col]>=0/* && gameApp.GetTypeH(row, col)==false*/){
+					color=stone[row][col];
+					for(let x=col;x<col+length;++x){
+						if(color!=stone[row][x])
+							if(x-col!=broke && x-col!=broke2)
+								break;
+						
+						if(x-col==broke || x-col==broke2)
+							if(stone[row][x]>=0)
+								break;
+						
+						if(x==col+length-1){
+							Distributer_H(type, row, col,color);
+						}
+					}
+				}
+		}
+		return -1;
+	}
+	
+	
+	
+	function Check_V_pattern(length, broke, broke2, type){
+		/*
+		 * Check stones in a row in the vertical direction
+		 * broke indicate the position of the point that is missing a stone
+		 * For example: In three-one situation "xxx-x", length is 5, broke is the position of o, which is 3(start counting from 0)
+		 * If broke is larger then length, it means never broke in the middle
+		 */
+		let color;
+		for(let col=0;col<BOARD_SIZE;++col){
+			for(let row=0;row<BOARD_SIZE-length+1;++row)
+				if(stone[row][col]>=0/* && gameApp.GetTypeV(row, col)==false*/){
+					color=stone[row][col];
+					for(let x=row;x<row+length;++x){
+						if(color!=stone[x][col])
+							if(x-row!=broke && x-row!=broke2)
+								break;
+						
+						if(x-row==broke || x-row==broke2)
+							if(stone[x][col]>=0)
+								break;
+						
+						if(x==row+length-1)
+							Distributer_V(type, row, col,color);
+					}
+				}
+		}
+		return -1;
+	}
+	
+	function Check_D1_pattern(length, broke, broke2, type){
+		/*
+		 * Check stones in a row in the diagonal direction  " \ "
+		 * broke indicate the position of the point that is missing a stone
+		 * For example: In three-one situation "xxx-x", length is 5, broke is the position of o, which is 3(start counting from 0)
+		 * If broke is larger then length, it means never broke in the middle
+		 */
+		let color;
+		for(let col=0;col<BOARD_SIZE-length+1;++col){
+			for(let row=0;row<BOARD_SIZE-length+1;++row)
+				if(stone[row][col]>=0 /*&& gameApp.GetTypeD1(row, col)==false*/){
+					color=stone[row][col];
+					for(let r=row, c=col;r<row+length && c<col+length;++r, ++c){
+						if(color!=stone[r][c])
+							if(r-row!=broke && c-col!=broke && r-row!=broke2 && c-col!=broke2)
+								break;
+						
+						if((r-row==broke && c-col==broke) || (r-row==broke2 && c-col==broke2))
+							if(stone[r][c]>=0)
+								break;
+						
+						if(r==row+length-1 && c==col+length-1)
+							Distributer_D1(type, row, col,color);
+					}
+				}
+		}
+		return -1;
+	}
+	
+	function Check_D2_pattern(length, broke, broke2, type){
+		/*
+		 * Check stones in a row in the diagonal direction "/"
+		 * broke indicate the position of the point that is missing a stone
+		 * For example: In three-one situation "xxx-x", length is 5, broke is the position of o, which is 3(start counting from 0)
+		 * If broke is larger then length, it means never broke in the middle
+		 */
+		let color;
+		for(let col=length-1;col<BOARD_SIZE;++col){
+			for(let row=0;row<BOARD_SIZE-length+1;++row)
+				if(stone[row][col]>=0 /* && gameApp.GetTypeD2(row, col)==false*/){
+					color=stone[row][col];
+					for(let r=row, c=col;r<row+length && c>col-length;++r, --c){
+						if(color!=stone[r][c])
+							if(r-row!=broke && col-c!=broke && r-row!=broke2 && col-c!=broke2)
+								break;
+						
+						if((r-row==broke && col-c==broke) || (r-row==broke2 && col-c==broke2))
+							if(stone[r][c]>=0)
+								break;
+						
+						if(r==row+length-1 && c==col-length+1)
+							Distributer_D2(type, row, col,color);
+					}
+				}
+		}
+		return -1;
+	}
+	
+	function Distributer_H(type, row, col, color){
+		/*
+		 * Call corresponding handler to deal with the specific situation
+		 */
+		System.out.print("Color: "+color+"    ");
+		switch(type){
+		case FOUR: 
+				Four_H(row, col,color);
+				break;
+		case THREE_ONE:
+				Three_OneH(row, col, color);
+				break;
+		case ONE_THREE:
+				One_ThreeH(row, col, color);
+				break;
+		case TWO_TWO:
+				Two_twoH(row, col, color);
+				break;
+		case TWO_ONE:
+				Two_oneH(row, col, color);
+				break;
+		case ONE_TWO:
+				One_twoH(row, col, color);
+				break;
+		case THREE:
+				Three_H(row, col, color);
+				break;
+		case TWO:
+				Two_H(row, col, color);
+				break;
+		case ONE_ONE:
+				One_One_H(row, col, color);
+				break;
+		case ONE__ONE:
+				One__One_H(row, col, color);
+				break;
+		}
+	}
+	
+	function Distributer_V(type, row, col, color){
+		/*
+		 * Call corresponding handler to deal with the specific situation
+		 */
+		System.out.print("Color: "+color+"    ");
+		switch(type){
+		case FOUR: 
+				Four_V(row, col,color);
+				break;
+		case THREE_ONE:
+				Three_OneV(row, col, color);
+				break;
+		case ONE_THREE:
+				One_ThreeV(row, col, color);
+				break;
+		case TWO_TWO:
+				Two_twoV(row, col, color);
+				break;
+		case TWO_ONE:
+				Two_oneV(row, col, color);
+				break;
+		case ONE_TWO:
+				One_twoV(row, col, color);
+				break;
+		case THREE:
+				Three_V(row, col, color);
+				break;
+		case TWO:
+				Two_V(row, col, color);
+				break;
+		case ONE_ONE:
+				One_One_V(row, col, color);
+				break;
+		case ONE__ONE:
+				One__One_V(row, col, color);
+				break;
+		}
+	}
+	
+	function Distributer_D1(type, row, col, color){//  "\"
+		/*
+		 * Call corresponding handler to deal with the specific situation
+		 */
+		System.out.print("Color: "+color+"    ");
+		switch(type){
+		case FOUR: 
+				Four_D1(row, col,color);
+				break;
+		case THREE_ONE:
+				Three_OneD1(row, col, color);
+				break;
+		case ONE_THREE:
+				One_ThreeD1(row, col, color);
+				break;
+		case TWO_TWO:
+				Two_twoD1(row, col, color);
+				break;
+		case TWO_ONE:
+				Two_oneD1(row, col, color);
+				break;
+		case ONE_TWO:
+				One_twoD1(row, col, color);
+				break;
+		case THREE:
+				Three_D1(row, col, color);
+				break;
+		case TWO:
+				Two_D1(row, col, color);
+				break;
+		case ONE_ONE:
+				One_One_D1(row, col, color);
+				break;
+		case ONE__ONE:
+				One__One_D1(row, col, color);
+				break;
+		}
+	}
+	
+	function Distributer_D2(type, row, col, color){// "/"
+		/*
+		 * Call corresponding handler to deal with the specific situation
+		 */
+		System.out.print("Color: "+color+"    ");
+		switch(type){
+		case FOUR: 
+				Four_D2(row, col,color);
+				break;
+		case THREE_ONE:
+				Three_OneD2(row, col, color);
+				break;
+		case ONE_THREE:
+				One_ThreeD2(row, col, color);
+				break;
+		case TWO_TWO:
+				Two_twoD2(row, col, color);
+				break;
+		case TWO_ONE:
+				Two_oneD2(row, col, color);
+				break;
+		case ONE_TWO:
+				One_twoD2(row, col, color);
+				break;
+		case THREE:
+				Three_D2(row, col, color);
+				break;
+		case TWO:
+				Two_D2(row, col, color);
+				break;
+		case ONE_ONE:
+				One_One_D2(row, col, color);
+				break;
+		case ONE__ONE:
+				One__One_D2(row, col, color);
+				break;
+		}
+	}
+	
+	
+	
+	function Four_H(row, col, color){
+		/*
+		 * Four stones in a row
+		 */
+		let weight=FOURWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(col-1>=0)
+			if(stone[row][col-1]==UNSET)
+				//Defense ****	->	0****
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row, col-1, weight);
+		if(col+4<BOARD_SIZE)
+			if(stone[row][col+4]==UNSET)
+				//Defense ****	->	****0
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row, col+4, weight);
+	}
+	
+	function Four_V(row, col, color){
+		/*
+		 * Four stones in a row
+		 */
+		let weight=FOURWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(row-1>=0)
+			if(stone[row-1][col]==UNSET)
+				//Defense ****	->	0****
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row-1, col, weight);
+		if(row+4<BOARD_SIZE)
+			if(stone[row+4][col]==UNSET)
+				//Defense ****	->	****0
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row+4, col, weight);
+	}
+	
+	function Four_D1(row, col, color){
+		/*
+		 * Four stones in a row
+		 */
+		let weight=FOURWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(row-1>=0 && col-1>=0)
+			if(stone[row-1][col-1]==UNSET)
+				//Defense ****	->	0****
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row-1, col-1, weight);
+		if(row+4<BOARD_SIZE && col+4<BOARD_SIZE)
+			if(stone[row+4][col+4]==UNSET)
+				//Defense ****	->	****0
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row+4, col+4, weight);
+	}
+	
+	function Four_D2(row, col, color){
+		/*
+		 * Four stones in a row
+		 */
+		let weight=FOURWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(row-1>=0 && col+1<BOARD_SIZE)
+			if(stone[row-1][col+1]==UNSET)
+				//Defense ****	->	0****
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row-1, col+1, weight);
+		if(row+4<BOARD_SIZE && col-4>=0)
+			if(stone[row+4][col-4]==UNSET)
+				//Defense ****	->	****0
+				//Offense ****	->	*****
+				gameApp.SetStoneWeight(row+4, col-4, weight);
+	}
+	
 
-// ═══════════ CONSTANTS ═══════════
-const N=15, CL=36, GP=40, CS=(N-1)*CL+2*GP, SR=CL*0.465;
-const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
-const COL_LBL='ABCDEFGHIJKLMNO';
-const ROW_LBL=Array.from({length:N},(_,i)=>String(N-i));
-const DEPTH=[0, 1,1, 2,2, 3,4, 5,6, 7,8, 8,9, 10,11, 12];
-//           0  1 2  3 4  5 6  7 8  9 10 11 12  13  14  15
-const DHINT=['',
-  '入门','入门',
-  '业余初级','业余初级',
-  '业余中级','业余中级',
-  '业余高级','业余高级',
-  'VCF+增量评估 · 限时 3s','VCF+TT+PVS · 限时 4s',
-  'PVS+置换表 · 限时 8s','深度搜索+杀手走法 · 限时 12s',
-  '深度搜索+VCF · 限时 18s','Rapfi风格 · 限时 25s',
-  'Rapfi风格·最强 · 限时 30s'];
+	function Three_OneH(row, col, color){
+		/*
+		 * Three stones and one in a row
+		 */
+		//Defense ***-*	->	***0*
+		//Offense ***-*	->	*****
+		let weight=THREE_ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row][col+3]==UNSET)
+				gameApp.SetStoneWeight(row, col+3, weight);
+	}
+	
+	function Three_OneV(row, col, color){
+		/*
+		 * Three stones and one in a row
+		 */
+		//Defense ***-*	->	***0*
+		//Offense ***-*	->	*****
+		let weight=THREE_ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+3][col]==UNSET)
+				gameApp.SetStoneWeight(row+3, col, weight);
+	}
+	
+	function Three_OneD1(row, col, color){
+		/*
+		 * Three stones and one in a row
+		 */
+		//Defense ***-*	->	***0*
+		//Offense ***-*	->	*****
+		let weight=THREE_ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+3][col+3]==UNSET)
+				gameApp.SetStoneWeight(row+3, col+3, weight);
+	}
+	
+	function Three_OneD2(row, col, color){
+		/*
+		 * Three stones and one in a row
+		 */
+		//Defense ***-*	->	***0*
+		//Offense ***-*	->	*****
+		let weight=THREE_ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+3][col-3]==UNSET)
+				gameApp.SetStoneWeight(row+3, col-3, weight);
+	}
+	
+	function One_ThreeH(row, col, color){
+		/*
+		 * One stone and three stones in a row
+		 */
+		//Defense *-***	->	*0***
+		//Offense *-***	->	*****
+		let weight=ONE_THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row][col+1]==UNSET)
+			gameApp.SetStoneWeight(row, col+1, weight);
+	}
+	
+	function One_ThreeV(row, col, color){
+		/*
+		 * One stone and three stones in a row
+		 */
+		//Defense *-***	->	*0***
+		//Offense *-***	->	*****
+		let weight=ONE_THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+1][col]==UNSET)
+			gameApp.SetStoneWeight(row+1, col, weight);
+	}
+	
+	function One_ThreeD1(row, col, color){
+		/*
+		 * One stone and three stones in a row
+		 */
+		//Defense *-***	->	*0***
+		//Offense *-***	->	*****
+		let weight=ONE_THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+1][col+1]==UNSET)
+			gameApp.SetStoneWeight(row+1, col+1, weight);
+	}
+	
+	function One_ThreeD2(row, col, color){
+		/*
+		 * One stone and three stones in a row
+		 */
+		//Defense *-***	->	*0***
+		//Offense *-***	->	*****
+		let weight=ONE_THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+1][col-1]==UNSET)
+			gameApp.SetStoneWeight(row+1, col-1, weight);
+	}
+	
+	function Two_twoH(row, col, color){
+		/*
+		 * Tow stones and two stones in a row
+		 */
+		//Defense **-**	->	**0**
+		//Offense **-**	->	*****
+		let weight=TWO_TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row][col+2]==UNSET)
+			gameApp.SetStoneWeight(row, col+2, weight);
+	}
+	
+	function Two_twoV(row, col, color){
+		/*
+		 * Tow stones and two stones in a row
+		 */
+		//Defense **-**	->	**0**
+		//Offense **-**	->	*****
+		let weight=TWO_TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+2][col]==UNSET)
+			gameApp.SetStoneWeight(row+2, col, weight);
+	}
+	
+	function Two_twoD1(row, col, color){
+		/*
+		 * Tow stones and two stones in a row
+		 */
+		//Defense **-**	->	**0**
+		//Offense **-**	->	*****
+		let weight=TWO_TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+2][col+2]==UNSET)
+			gameApp.SetStoneWeight(row+2, col+2, weight);
+	}
+	
+	function Two_twoD2(row, col, color){
+		/*
+		 * Tow stones and two stones in a row
+		 */
+		//Defense **-**	->	**0**
+		//Offense **-**	->	*****
+		let weight=TWO_TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_FOUR;
+		if(stone[row+2][col-2]==UNSET)
+			gameApp.SetStoneWeight(row+2, col-2, weight);
+	}
+	
+	function Three_H(row, col, color){
+		/*
+		 * Three stones in a row
+		 */
+		
+		if(col-1>0 && col+3<BOARD_SIZE){
+			//--***-
+			if(stone[row][col-1]==UNSET && stone[row][col-2]==UNSET && stone[row][col+3]==UNSET){		
+				Three_H_FREE(row, col, color, 1);
+			}
+			else if(stone[row][col-1]==UNSET && stone[row][col-2]==UNSET && stone[row][col+3]>=0 && stone[row][col+3]!=color){
+				Three_H_BLK(row, col, color,1);
+			}
+		}
+		if(col-1>=0 && col+3<BOARD_SIZE-1){
+			//-***--
+			if(stone[row][col+3]==UNSET && stone[row][col+4]==UNSET && stone[row][col-1]==UNSET){
+				Three_H_FREE(row, col, color, 0);
+			}
+			else if(stone[row][col+3]==UNSET && stone[row][col+4]==UNSET && stone[row][col-1]>=0 && stone[row][col-1]!=color){
+				Three_H_BLK(row, col, color,0);
+			}
+		}
+		if(col-2>=0 && col+4<BOARD_SIZE){
+			//0-***-0
+			if(stone[row][col-1]==UNSET && stone[row][col+3]==UNSET && stone[row][col-2]!=UNSET && stone[row][col+4]!=UNSET){
+				gameApp.SetStoneWeight(row, col-1, Math.trunc(THREEWEIGHT/10));
+				gameApp.SetStoneWeight(row, col+3, Math.trunc(THREEWEIGHT/10));
+			}
+		}
+	}
+	
+	function Three_H_FREE(row, col, color, pos){
+		/*
+		 * Three stone in a row while there is nothing on two ends
+		 * pos = 1 means the 2 empty spots on the start pos, pos=0 means 2 empty spots on the end pos, start and end position is related to the scan order
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_THREE;
+		
+		if(pos==1){
+			//Defense --***-	->	-0***-
+			//Offense --***-	->	-****-
+			gameApp.SetStoneWeight(row, col-1, weight);
+			
+			if(color==gameApp.GetTrackSize()%2)
+				//Offense --***-	->	*-***-
+				gameApp.SetStoneWeight(row, col-2, Math.trunc(weight/2));
+		}
+		
+		if(pos==0){
+			//Defense -***--	->	-***0-
+			//Offense -***--	->	-****-
+			gameApp.SetStoneWeight(row, col+3, weight);
+			
+			if(color==gameApp.GetTrackSize()%2)
+				//Offense -***--	->	-***-*
+				gameApp.SetStoneWeight(row, col+4, Math.trunc(weight/2));
+		}
+		
+	}
+	
+	function Three_H_BLK(row, col, color, pos){
+		/*
+		 * Three stone in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==1){
+				//Offense --***0	->	*-***0 or -****0
+				//Defense --***0	->	0-***0 or -0***0
+				gameApp.SetStoneWeight(row, col-1, weight-1);
+				gameApp.SetStoneWeight(row, col-2, weight);
+		}
+		if(pos==0){
+				//Offense 0***--	->	0***-* or 0****-
+				//Defense 0***--	->  0***-0 or 0***0-
+				gameApp.SetStoneWeight(row, col+3, weight-1);
+				gameApp.SetStoneWeight(row, col+4, weight);
+		}
+	}
+	
+	function Three_V(row, col, color){
+		/*
+		 * Three stones in a row
+		 */
+		if(row-1>0 && row+3<BOARD_SIZE){
+			if(stone[row-1][col]==UNSET && stone[row-2][col]==UNSET && stone[row+3][col]==UNSET)
+				Three_V_FREE(row, col, color,1);
+			else if(stone[row-1][col]==UNSET && stone[row-2][col]==UNSET && stone[row+3][col]>=0 && stone[row+3][col]!=color)
+				Three_V_BLK(row, col, color,1);	
+		}		
+		if(row-1>=0 && row+3<BOARD_SIZE-1){
+			if(stone[row+3][col]==UNSET && stone[row+4][col]==UNSET && stone[row-1][col]==UNSET)
+				Three_V_FREE(row, col, color,0);
+			else if(stone[row+3][col]==UNSET && stone[row+4][col]==UNSET && stone[row-1][col]>=0 && stone[row-1][col]!=color)
+				Three_V_BLK(row, col, color,0);
+		}
+		if(row-2>=0 && row+4<BOARD_SIZE){
+			//0-***-0
+			if(stone[row-1][col]==UNSET && stone[row+3][col]==UNSET && stone[row-2][col]!=UNSET && stone[row+4][col]!=UNSET){
+				gameApp.SetStoneWeight(row-1, col, Math.trunc(THREEWEIGHT/10));
+				gameApp.SetStoneWeight(row+3, col, Math.trunc(THREEWEIGHT/10));
+			}
+		}
+	}
+	
+	function Three_V_FREE(row, col, color, pos){
+		/*
+		 * Three stone in a row while there is nothing on two ends
+		 * pos = 1 means the 2 empty spots on the start pos, pos=0 means 2 empty spots on the end pos, start and end position is related to the scan order
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_THREE;
+		
+		if(pos==1){
+			//Defense --***-	->	-0***-
+			//Offense --***-	->	-****-
+			gameApp.SetStoneWeight(row-1, col, weight);
+			
+			if(color==gameApp.GetTrackSize()%2)	
+				//Offense --***-	->	*-***-
+				gameApp.SetStoneWeight(row-2, col, Math.trunc(weight/2));
+		}
+		
+		if(pos==0){
+			//Defense -***--	->	-***0-
+			//Offense -***--	->	-****-
+			gameApp.SetStoneWeight(row+3, col, weight);
+			
+			if(color==gameApp.GetTrackSize()%2)
+				//Offense -***--	->	***-*-
+				gameApp.SetStoneWeight(row+4, col, Math.trunc(weight/2));
+		}
+		
+	}
+	
+	function Three_V_BLK(row, col, color, pos){
+		/*
+		 * Three stone in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==1){
+				//Offense --***0	->	*-***0 or -****0
+				//Defense --***0	->	0-***0 or -0***0
+				gameApp.SetStoneWeight(row-1, col, weight-1);
+				gameApp.SetStoneWeight(row-2, col, weight);
+		}
+		if(pos==0){
+				//Offense 0***--	->	0***-* or 0****-
+				//Defense 0***--	->  0***-0 or 0***0-
+				gameApp.SetStoneWeight(row+3, col, weight-1);
+				gameApp.SetStoneWeight(row+4, col, weight);
+		}
+		
+	}
+	
+	function Three_D1(row, col, color){
+		/*
+		 * Three stones in a row
+		 */
+		
+		if(row-1>0 && col-1>0 && row+3<BOARD_SIZE && col+3<BOARD_SIZE){
+			if(stone[row-1][col-1]==UNSET && stone[row-2][col-2]==UNSET && stone[row+3][col+3]==UNSET)
+				Three_D1_FREE(row, col, color,1);	
+			else if(stone[row-1][col-1]==UNSET && stone[row-2][col-2]==UNSET && stone[row+3][col+3]>=0 && stone[row+3][col+3]!=color ) 
+				Three_D1_BLK(row, col, color,1);		
+		}
+		if(row-1>=0 && col-1>=0 && row+3<BOARD_SIZE-1 && col+3<BOARD_SIZE-1){
+			if(stone[row+3][col+3]==UNSET && stone[row+4][col+4]==UNSET && stone[row-1][col-1]==UNSET)
+				Three_D1_FREE(row, col, color,0);	
+			else if(stone[row+3][col+3]==UNSET && stone[row+4][col+4]==UNSET  && stone[row-1][col-1]>=0 && stone[row-1][col-1]!=color)
+				Three_D1_BLK(row, col, color,0);		
+		}
+		if(row-2>=0 && row+4<BOARD_SIZE && col-2>=0 && col+4<BOARD_SIZE){
+			//0-***-0
+			if(stone[row-1][col-1]==UNSET && stone[row+3][col+3]==UNSET && stone[row-2][col-2]!=UNSET && stone[row+4][col+4]!=UNSET){
+				gameApp.SetStoneWeight(row-1, col-1, Math.trunc(THREEWEIGHT/10));
+				gameApp.SetStoneWeight(row+3, col+3, Math.trunc(THREEWEIGHT/10));
+			}
+		}
+	}
+	
+	function Three_D1_FREE(row, col, color, pos){
+		/*
+		 * Three stone in a row while there is nothing on two ends
+		 * pos = 1 means the 2 empty spots on the start pos, pos=0 means 2 empty spots on the end pos, start and end position is related to the scan order
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_THREE;
+		
+		if(pos==1){
+			//Defense --***-	->	-0***-
+			//Offense --***-	->	-****-
+			gameApp.SetStoneWeight(row-1, col-1, weight);
+			
+			if(color==gameApp.GetTrackSize()%2)	
+				//Offense --***-	->	*-***-
+				gameApp.SetStoneWeight(row-2, col-2, Math.trunc(weight/2));
+		}
+		
+		if(pos==0){
+			//Defense -***--	->	-***0-
+			//Offense -***--	->	-****-
+			gameApp.SetStoneWeight(row+3, col+3, weight);
+			if(color==gameApp.GetTrackSize()%2)	
+				//Offense -***-	->	***-*-
+				gameApp.SetStoneWeight(row+4, col+4, Math.trunc(weight/2));
+		}
+		
+	}
+	
+	function Three_D1_BLK(row, col, color, pos){
+		/*
+		 * Three stone in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==1){
+				//Offense --***0	->	*-***0 or -****0
+				//Defense --***0	->	0-***0 or -0***0
+				gameApp.SetStoneWeight(row-1, col-1, weight-1);
+				gameApp.SetStoneWeight(row-2, col-2, weight);
+		}
+		
+		if(pos==0){
+				//Offense 0***--	->	0***-* or 0****-
+				//Defense 0***--	->  0***-0 or 0***0-
+				gameApp.SetStoneWeight(row+3, col+3, weight-1);
+				gameApp.SetStoneWeight(row+4, col+4, weight);
+		}
+	}
+	
+	function Three_D2(row, col, color){
+		/*
+		 * Three stones in a row
+		 */
 
-// ═══════════ GAME STATE ═══════════
-let board,curP,isOver,lastPos,hist;
-let gMode='pvp',pCol=1,aiCol=2,diff=5,forbRule=false;
-let scores={1:0,2:0};
-let thinking=false,aiTimer=null,hPos=null;
-let showMoveNums=false;
-let setup={mode:'pvc',pCol:1,diff:5};
+		if(row-1>0 && col-3>=0 && col+1<BOARD_SIZE-1 && row+3<BOARD_SIZE){
+			if(stone[row-1][col+1]==UNSET && stone[row-2][col+2]==UNSET && stone[row+3][col-3]==UNSET)
+				Three_D2_FREE(row, col, color,1);
+			else if(stone[row-1][col+1]==UNSET && stone[row-2][col+2]==UNSET && stone[row+3][col-3]>=0 && stone[row+3][col-3]!=color) 
+				Three_D2_BLK(row, col, color,1);			
+		}
+		if(row+3<BOARD_SIZE-1 && col-3>0 && row-1>=0 && col+1<BOARD_SIZE){
+			if(stone[row+3][col-3]==UNSET && stone[row+4][col-4]==UNSET && stone[row-1][col+1]==UNSET)
+				Three_D2_FREE(row, col, color,0);	
+			else if(stone[row+3][col-3]==UNSET && stone[row+4][col-4]==UNSET && stone[row-1][col+1]>=0 && stone[row-1][col+1]!=color)  
+				Three_D2_BLK(row, col, color,0);	
+		}
+		if(row-2>=0 && row+4<BOARD_SIZE && col-4>=0 && col+2<BOARD_SIZE){
+			//0-***-0
+			if(stone[row-1][col+1]==UNSET && stone[row+3][col-3]==UNSET && stone[row-2][col+2]!=UNSET && stone[row+4][col-4]!=UNSET){
+				gameApp.SetStoneWeight(row-1, col+1, Math.trunc(THREEWEIGHT/10));
+				gameApp.SetStoneWeight(row+3, col-3, Math.trunc(THREEWEIGHT/10));
+			}
+		}
+	}
+	
+	function Three_D2_FREE(row, col, color, pos){
+		/*
+		 * Three stone in a row while there is nothing on two ends
+		 * pos = 1 means the 2 empty spots on the start pos, pos=0 means 2 empty spots on the end pos, start and end position is related to the scan order
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK_THREE;
+		
+		if(pos==1){
+			//Defense --***-	->	-0***-
+			//Offense --***-	->	-****-
+			gameApp.SetStoneWeight(row-1, col+1, weight);
+			
+			if(color==gameApp.GetTrackSize()%2)	
+				//Offense --***-	->	*-***-
+				gameApp.SetStoneWeight(row-2, col+2, Math.trunc(weight/2));	
+		}
+		
+		if(pos==0){
+			//Defense -***--	->	-***0-
+			//Offense -***--	->	-****-
+			gameApp.SetStoneWeight(row+3, col-3, weight);
+			if(color==gameApp.GetTrackSize()%2)	
+				//Offense --***-	->	-***-*
+				gameApp.SetStoneWeight(row+4, col-4, Math.trunc(weight/2));	
+		}
+		
+	}
+	
+	function Three_D2_BLK(row, col, color, pos){
+		/*
+		 * Three stone in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==1){
+				//Offense --***0	->	*-***0 or -****0
+				//Defense --***0	->	0-***0 or -0***0
+				gameApp.SetStoneWeight(row-1, col+1, weight-1);	
+				gameApp.SetStoneWeight(row-2, col+2, weight);	
+		}
+		if(pos==0){
+				//Offense 0***--	->	0***-* or 0****-
+				//Defense 0***--	->  0***-0 or 0***0-
+				gameApp.SetStoneWeight(row+3, col-3, weight-1);	
+				gameApp.SetStoneWeight(row+4, col-4, weight);	
+		}
+	}
 
-// ═══════════ ZOOM STATE ═══════════
-let isMobile=false;
-let zoomState='out';        // 'out' | 'in'
-let curScale=1,baseScale=1,zoomScale=1;
-let twX=0,twY=0;
 
-const vpEl=document.getElementById('boardViewport');
-const twEl=document.getElementById('boardTwrap');
-const zhEl=document.getElementById('zoomHint');
+	function Two_oneH(row, col, color){
+		/*
+		 * Two stones and one in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && col+4<BOARD_SIZE){
+			if(stone[row][col+2]==UNSET && stone[row][col+4]==UNSET && stone[row][col-1]==UNSET){
+				//Defense -**-*-	->	-**0*-
+				//Offense -**-*-	->	-****-
+				gameApp.SetStoneWeight(row, col+2, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row, col-1, weight-1);
+					gameApp.SetStoneWeight(row, col+4, weight-2);
+				}
+			}
+			else if(stone[row][col+4]==UNSET && stone[row][col-1]>=0 && stone[row][col-1]!=color)
+				Two_oneH_BLK(row, col, color, 0);
+			else if(stone[row][col+4]>=0 && stone[row][col-1]==UNSET && stone[row][col+4]!=color)
+				Two_oneH_BLK(row, col, color, 1);
+		}
+		
+	}
+	
+	function Two_oneH_BLK(row, col, color, pos){
+		/*
+		 * Two stones and one in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0**-*-	->0**-** or 0****-
+			//Defense 0**-*-	->0**-*0 or 0**0*-
+			gameApp.SetStoneWeight(row, col+2, weight-1);
+			gameApp.SetStoneWeight(row, col+4, weight);
+		}
+			
+		if(pos==1){
+			//Offense -**-*0	->***-*0 or -****0
+			//Defense -**-*0	->0**-*0 or -**0*0
+			gameApp.SetStoneWeight(row, col+2, weight-1);
+			gameApp.SetStoneWeight(row, col-1, weight);
+		}
+	}
+	
+	function Two_oneV(row, col, color){
+		/*
+		 * Two stones and one in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(row-1>=0 && row+4<BOARD_SIZE){
+			if(stone[row+2][col]==UNSET && stone[row+4][col]==UNSET && stone[row-1][col]==UNSET){
+				//Defense -**-*-	->	-**0*-
+				//Offense -**-*-	->	-****-
+				gameApp.SetStoneWeight(row+2, col, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row+4, col, weight-2);
+					gameApp.SetStoneWeight(row-1, col, weight-1);
+				}
+			}
+			else if(stone[row+4][col]==UNSET && stone[row-1][col]>=0 && stone[row-1][col]!=color)  
+				Two_oneV_BLK(row, col, color, 0);
+			else if(stone[row+4][col]>=0 && stone[row-1][col]==UNSET && stone[row+4][col]!=color)  
+				Two_oneV_BLK(row, col, color, 1);
+		}
+	}
+	
+	function Two_oneV_BLK(row, col, color, pos){
+		/*
+		 * Two stones and one in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+				//Offense 0**-*-	->0**-** or 0****-
+				//Defense 0**-*-	->0**-*0 or 0**0*-
+				gameApp.SetStoneWeight(row+2, col, weight-1);
+				gameApp.SetStoneWeight(row+4, col, weight);
+		}
+		if(pos==1){
+				//Offense -**-*0	->***-*0 or -****0
+				//Defense -**-*0	->0**-*0 or -**0*0
+				gameApp.SetStoneWeight(row+2, col, weight-1);
+				gameApp.SetStoneWeight(row-1, col, weight);
+		}
+	}
+	
+	function Two_oneD1(row, col, color){
+		/*
+		 * Tow stones and one in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && row-1>=0 && row+4<BOARD_SIZE && col+4<BOARD_SIZE){
+			if(stone[row+2][col+2]==UNSET && stone[row+4][col+4]==UNSET && stone[row-1][col-1]==UNSET){
+				//Defense -**-*-	->	-**0*-
+				//Offense -**-*-	->	-****-
+				gameApp.SetStoneWeight(row+2, col+2, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row-1, col-1, weight-1);
+					gameApp.SetStoneWeight(row+4, col+4, weight-2);
+				}
+			}
+			else if(stone[row+4][col+4]==UNSET && stone[row-1][col-1]>=0 && stone[row-1][col-1]!=color) 
+				Two_oneD1_BLK(row, col, color, 0);
+			else if(stone[row+4][col+4]>=0 && stone[row-1][col-1]==UNSET && stone[row+4][col+4]!=color) 
+				Two_oneD1_BLK(row, col, color, 1);
+		}
+	}
+	
+	function Two_oneD1_BLK(row, col, color, pos){
+		/*
+		 * Two stones and one in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0**-*-	->0**-** or 0****-
+			//Defense 0**-*-	->0**-*0 or 0**0*-
+			gameApp.SetStoneWeight(row+2, col+2, weight-1);
+			gameApp.SetStoneWeight(row+4, col+4, weight);
+		}
+		if(pos==1){
+			//Offense -**-*0	->***-*0 or -****0
+			//Defense -**-*0	->0**-*0 or -**0*0
+			gameApp.SetStoneWeight(row+2, col+2, weight-1);
+			gameApp.SetStoneWeight(row-1, col-1, weight);
+		}
+	}
+	
+	function Two_oneD2(row, col, color){
+		/*
+		 * Two stones and one in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-4>=0 && row-1>=0 && row+4<BOARD_SIZE && col+1<BOARD_SIZE){
+			if(stone[row+2][col-2]==UNSET && stone[row+4][col-4]==UNSET && stone[row-1][col+1]==UNSET){
+				//Defense -**-*-	->	-**0*-
+				//Offense -**-*-	->	-****-
+				gameApp.SetStoneWeight(row+2, col-2, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row-1, col+1, weight-1);
+					gameApp.SetStoneWeight(row+4, col-4, weight-2);
+				}
+			}
+			else if(stone[row+4][col-4]==UNSET && stone[row-1][col+1]>=0 && stone[row-1][col+1]!=color) 
+				Two_oneD2_BLK(row, col, color, 0);
+			else if(stone[row+4][col-4]>=0 && stone[row-1][col+1]==UNSET && stone[row+4][col-4]!=color) 
+				Two_oneD2_BLK(row, col, color, 1);
+		}
+	}
+	
+	function Two_oneD2_BLK(row, col, color, pos){
+		/*
+		 * Two stones and one in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0**-*-	->0**-** or 0****-
+			//Defense 0**-*-	->0**-*0 or 0**0*-
+			gameApp.SetStoneWeight(row+2, col-2, weight-1);
+			gameApp.SetStoneWeight(row+4, col-4, weight);
+		}
+		if(pos==1){
+			//Offense -**-*0	->***-*0 or -****0
+			//Defense -**-*0	->0**-*0 or -**0*0
+			gameApp.SetStoneWeight(row+2, col-2, weight-1);
+			gameApp.SetStoneWeight(row-1, col+1, weight);
+		}
+	}
+	
+	function One_twoH(row, col, color){
+		/*
+		 * One stone and two stones in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && col+4<BOARD_SIZE){
+			if(stone[row][col+1]==UNSET && stone[row][col+4]==UNSET && stone[row][col-1]==UNSET){
+				//Defense -*-**-	->	-*0**-
+				//Offense -*-**-	->	-****-
+				gameApp.SetStoneWeight(row, col+1, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row, col+4, weight-1);
+					gameApp.SetStoneWeight(row, col-1, weight-2);
+				}
+			}
+			else if(stone[row][col+4]==UNSET && stone[row][col-1]>=0  && stone[row][col-1]!=color)  
+				One_twoH_BLK(row, col, color, 0);
+			else if(stone[row][col+4]>=0 && stone[row][col-1]==UNSET  && stone[row][col+4]!=color) 
+				One_twoH_BLK(row, col, color, 1);
+		}
+	}
+	
+	
+	function One_twoH_BLK(row, col, color, pos){
+		/*
+		 * One stone and two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0*-**-	->0*-*** or 0****-
+			//Defense 0*-**-	->0*-**0 or 0*0**-
+			gameApp.SetStoneWeight(row, col+1, weight-1);
+			gameApp.SetStoneWeight(row, col+4, weight);
+		}
+		if(pos==1){
+			//Offense -*-**0	->-****0 or **-**0
+			//Defense -*-**0	->0*-**0 or -*0**0
+			gameApp.SetStoneWeight(row, col+1, weight-1);
+			gameApp.SetStoneWeight(row, col-1, weight);
+		}
+	}
+	
+	function One_twoV(row, col, color){
+		/*
+		 * One stone and two stones in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(row-1>=0 && row+4<BOARD_SIZE){
+			if(stone[row+1][col]==UNSET && stone[row+4][col]==UNSET && stone[row-1][col]==UNSET){
+				//Defense -*-**-	->	-*0**-
+				//Offense -*-**-	->	-****-
+				gameApp.SetStoneWeight(row+1, col, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row-1, col, weight-2);
+					gameApp.SetStoneWeight(row+4, col, weight-1);
+				}
+			}else if(stone[row+4][col]==UNSET && stone[row-1][col]>=0 && stone[row-1][col]!=color)
+				One_twoV_BLK(row, col, color, 0);
+			else if(stone[row+4][col]>=0 && stone[row-1][col]==UNSET && stone[row+4][col]!=color) 
+				One_twoV_BLK(row, col, color, 1);
+		}
+	}
+	
+	function One_twoV_BLK(row, col, color, pos){
+		/*
+		 * One stone and two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0*-**-	->0*-*** or 0****-
+			//Defense 0*-**-	->0*-**0 or 0*0**-
+			gameApp.SetStoneWeight(row+1, col, weight-1);
+			gameApp.SetStoneWeight(row+4, col, weight);
+		}
+		if(pos==1){
+			//Offense -*-**0	->-****0 or **-**0
+			//Defense -*-**0	->0*-**0 or -*0**0
+			gameApp.SetStoneWeight(row+1, col, weight-1);
+			gameApp.SetStoneWeight(row-1, col, weight);
+		}
+	}
+	
+	function One_twoD1(row, col, color){
+		/*
+		 * One stone and two stones in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && row-1>=0 && row+4<BOARD_SIZE && col+4<BOARD_SIZE){
+			if(stone[row+1][col+1]==UNSET && stone[row+4][col+4]==UNSET && stone[row-1][col-1]==UNSET){
+				//Defense -*-**-	->	-*0**-
+				//Offense -*-**-	->	-****-
+				gameApp.SetStoneWeight(row+1, col+1, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row-1, col-1, weight-2);
+					gameApp.SetStoneWeight(row+4, col+4, weight-1);
+				}
+			}
+			else if(stone[row+4][col+4]==UNSET && stone[row-1][col-1]>=0 && stone[row-1][col-1]!=color)
+				One_twoD1_BLK(row, col, color, 0);	
+			else if(stone[row+4][col+4]>=0 && stone[row-1][col-1]==UNSET && stone[row+4][col+4]!=color) 
+				One_twoD1_BLK(row, col, color, 1);	
+		}
+		
+	}
+	
+	function One_twoD1_BLK(row, col, color, pos){
+		/*
+		 * One stone and two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0*-**-	->0*-*** or 0****-
+			//Defense 0*-**-	->0*-**0 or 0*0**-
+			gameApp.SetStoneWeight(row+1, col+1, weight-1);
+			gameApp.SetStoneWeight(row+4, col+4, weight);
+		}
+		if(pos==1){
+			//Offense -*-**0	->-****0 or **-**0
+			//Defense -*-**0	->0*-**0 or -*0**0
+			gameApp.SetStoneWeight(row+1, col+1, weight-1);
+			gameApp.SetStoneWeight(row-1, col-1, weight);
+		}
+	}
+	
+	function One_twoD2(row, col, color){
+		/*
+		 * One stone and two stones in a row
+		 */
+		let weight=THREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-4>=0 && row-1>=0 && row+4<BOARD_SIZE && col+1<BOARD_SIZE){
+			if(stone[row+1][col-1]==UNSET && stone[row+4][col-4]==UNSET && stone[row-1][col+1]==UNSET){
+				//Defense -*-**-	->	-*0**-
+				//Offense -*-**-	->	-****-
+				gameApp.SetStoneWeight(row+1, col-1, weight);
+				if(gameApp.GetTrackSize() %2!=color){
+					gameApp.SetStoneWeight(row-1, col+1, weight-2);
+					gameApp.SetStoneWeight(row+4, col-4, weight-1);
+				}
+			}
+			else if(stone[row+4][col-4]==UNSET && stone[row-1][col+1]>=0 && stone[row-1][col+1]!=color) 
+				One_twoD2_BLK(row, col, color, 0);	
+			else if(stone[row+4][col-4]>=0 && stone[row-1][col+1]==UNSET && stone[row+4][col-4]!=color)  
+				One_twoD2_BLK(row, col, color, 1);	
+		}
+	}
+	
+	function One_twoD2_BLK(row, col, color, pos){
+		/*
+		 * One stone and two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTHREEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(pos==0){
+			//Offense 0*-**-	->0*-*** or 0****-
+			//Defense 0*-**-	->0*-**0 or 0*0**-
+			gameApp.SetStoneWeight(row+1, col-1, weight-1);
+			gameApp.SetStoneWeight(row+4, col-4, weight);
+		}
+		if(pos==1){
+			//Offense -*-**0	->-****0 or **-**0
+			//Defense -*-**0	->0*-**0 or -*0**0
+			gameApp.SetStoneWeight(row+1, col-1, weight-1);
+			gameApp.SetStoneWeight(row-1, col+1, weight);
+		}
+	}
+	
+	function Two_H(row, col, color){
+		if(col-1>0 && col+3<BOARD_SIZE){
+			if(stone[row][col-1]==UNSET && stone[row][col-2]==UNSET 
+					&& stone[row][col+2]==UNSET && stone[row][col+3]==UNSET)
+				Two_H_FREE(row, col, color);
+		
+			//SEMI	0-**--	-> 0-***- or (if 0-**----> 0-**-*-
+			else if(stone[row][col-1]==UNSET && stone[row][col-2]!=UNSET && stone[row][col-2]!=color
+					&& stone[row][col+2]==UNSET && stone[row][col+3]==UNSET)
+				Two_H_SEMI(row, col, color, 0);
+			//--**-0	-> -***- or (if ---**-0	-> -*-**-0
+			else if(stone[row][col-1]==UNSET && stone[row][col-2]==UNSET && stone[row][col+3]!=color 
+					&& stone[row][col+2]==UNSET && stone[row][col+3]!=UNSET)
+				Two_H_SEMI(row, col, color, 1);
+		
+			//BLOCK	0**---	->
+			else if(stone[row][col-1]!=UNSET && stone[row][col-1]!=color && stone[row][col+2]==UNSET && stone[row][col+3]==UNSET){
+				if(col+4<BOARD_SIZE)
+					if(stone[row][col+4]==UNSET)
+						Two_H_BLK(row, col, color, 0);
+			}
+			
+			// ---**0	->
+			else if(stone[row][col+2]!=UNSET && stone[row][col+2]!=color && stone[row][col-1]==UNSET && stone[row][col-2]==UNSET){
+				if(col-3>=0)
+					if(stone[row][col-3]==UNSET)
+						Two_H_BLK(row, col, color, 1);
+			}
+				
+		}
+	}
+	
+	function Two_H_FREE(row, col, color){
+		/*
+		 * Free two stones in a row: --**--
+		 */
+		let weight=TWOWEIGHT;
+		let newWeight;
+		let blocked=true;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		newWeight=weight;
+		if(col-3>=0)
+			if(stone[row][col-3]==UNSET || stone[row][col-3]==color){
+				//Free function  ---**--	-> --***-- or -*-**-
+				if(stone[row][col-3]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row, col-1, newWeight);
+				gameApp.SetStoneWeight(row, col-2, newWeight-1);
+				blocked=false;
+			}
+		newWeight=weight;
+		if(col+4<BOARD_SIZE){
+			if(stone[row][col+4]==UNSET || stone[row][col+4]==color){
+				//Free function  --**---	-> --***-- or --**-*-
+				if(stone[row][col+4]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row, col+2, newWeight);
+				gameApp.SetStoneWeight(row, col+3, newWeight-1);
+				blocked=false;
+			}
+		}
+		if(blocked){
+			gameApp.SetStoneWeight(row, col-1, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row, col-2, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row, col+2, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row, col+3, Math.trunc(weight/4));
+		}	
+	}
+	
+	function Two_H_SEMI(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is kinda blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=SEMITWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//0-**--
+		if(pos==0){
+			if(col+4<BOARD_SIZE)
+				if(stone[row][col+4]==UNSET)
+					gameApp.SetStoneWeight(row, col+3, weight);//if 0-**--- -> 0-**-*-
+			gameApp.SetStoneWeight(row, col+2, weight);
+		}
+		//--**-0
+		if(pos==1){
+			if (col-3>=0)
+				if(stone[row][col-3]==UNSET)
+					gameApp.SetStoneWeight(row, col-2, weight);
+			gameApp.SetStoneWeight(row, col-1, weight);
+		}
+	}
+	
+	function Two_H_BLK(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(pos==0){
+			//0**---
+			gameApp.SetStoneWeight(row, col+2, weight);
+			gameApp.SetStoneWeight(row, col+3, weight);
+			gameApp.SetStoneWeight(row, col+4, weight);
+		}
+		if(pos==1){
+			//---**0
+			gameApp.SetStoneWeight(row, col-1, weight);
+			gameApp.SetStoneWeight(row, col-2, weight);
+			gameApp.SetStoneWeight(row, col-3, weight);
+		}
+		
+	}
+	
+	function Two_V(row, col, color){
+		//FREE	--**--	-> -***-- or --***-  or *-**-- or --**-*
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(row-1>0 && row+3<BOARD_SIZE)
+			if(stone[row-1][col]==UNSET && stone[row-2][col]==UNSET 
+					&& stone[row+2][col]==UNSET && stone[row+3][col]==UNSET)
+				Two_V_FREE(row, col, color);
+		//SEMI	0-**--	-> 0-***- or (if 0-**----> 0-**-*-
+			else if(stone[row-1][col]==UNSET && stone[row-2][col]!=UNSET && stone[row-2][col]!=color
+					&& stone[row+2][col]==UNSET && stone[row+3][col]==UNSET)
+				Two_V_SEMI(row, col, color, 0);
+			//--**-0	-> -***- or (if ---**-0	-> -*-**-0
+			else if(stone[row-1][col]==UNSET && stone[row-2][col]==UNSET && stone[row+3][col]!=color 
+					&& stone[row+2][col]==UNSET && stone[row+3][col]!=UNSET)
+				Two_V_SEMI(row, col, color, 1);
+		
+		//BLOCK	0**---	->
+			else if(stone[row-1][col]!=UNSET && stone[row-1][col]!=color && stone[row+2][col]==UNSET && stone[row+3][col]==UNSET){
+				if(row+4<BOARD_SIZE)
+					if(stone[row+4][col]==UNSET)
+						Two_V_BLK(row, col, color, 0);
+			}
+			
+			// ---**0	->
+			else if(stone[row+2][col]!=UNSET && stone[row+2][col]!=color && stone[row-1][col]==UNSET && stone[row-2][col]==UNSET){
+				if(row-3>=0)
+					if(stone[row-3][col]==UNSET)
+						Two_V_BLK(row, col, color, 1);
+			}
+	}
+	
+	function Two_V_FREE(row, col, color){
+		/*
+		 * Free two stones in a row: --**--
+		 */
+		let weight=TWOWEIGHT;
+		let newWeight;
+		let blocked=true;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		newWeight=weight;
+		if(row-3>=0)
+			if(stone[row-3][col]==UNSET || stone[row-3][col]==color){
+				//Free function  ---**--	-> --***-- or -*-**-
+				if(stone[row-3][col]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row-1, col, newWeight);
+				gameApp.SetStoneWeight(row-2, col, newWeight-1);
+				blocked=false;
 
-// ═══════════ CANVAS ═══════════
-const cv=document.getElementById('board');
-const cx=cv.getContext('2d');
-cv.width=CS; cv.height=CS;
-cv.style.width=CS+'px'; cv.style.height=CS+'px';
-cv.style.boxShadow='0 8px 40px rgba(0,0,0,.85),0 0 60px rgba(100,60,0,.12)';
+			}
+		newWeight=weight;
+		if(row+4<BOARD_SIZE){
+			if(stone[row+4][col]==UNSET || stone[row+4][col]==color){
+				//Free function  --**---	-> --***-- or --**-*-
+				if(stone[row+4][col]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row+2, col, newWeight);
+				gameApp.SetStoneWeight(row+3, col, newWeight-1);
+				blocked=false;
+			}
+		}
+		if(blocked){
+			gameApp.SetStoneWeight(row-1, col, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row-2, col, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row+2, col, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row+3, col, Math.trunc(weight/4));
+		}
+	}
+	
+	function Two_V_SEMI(row, col, color, pos){
+		/*
+		 *  two stones in a row while one end is kinda blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=SEMITWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//0-**--
+		if(pos==0){
+			if(row+4<BOARD_SIZE)
+				if(stone[row+4][col]==UNSET)
+					gameApp.SetStoneWeight(row+3, col, weight);//if 0-**--- -> 0-**-*-
+			gameApp.SetStoneWeight(row+2, col, weight);
+		}
+		//--**-0
+		if(pos==1){
+			if (row-3>=0)
+				if(stone[row-3][col]==UNSET)
+					gameApp.SetStoneWeight(row-2, col, weight);
+			gameApp.SetStoneWeight(row-1, col, weight);
+		}
+	}
+	
+	function Two_V_BLK(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(pos==0){
+			//0**---
+			gameApp.SetStoneWeight(row+2, col, weight);
+			gameApp.SetStoneWeight(row+3, col, weight);
+			gameApp.SetStoneWeight(row+4, col, weight);
+		}
+		if(pos==1){
+			//---**0
+			gameApp.SetStoneWeight(row-1, col, weight);
+			gameApp.SetStoneWeight(row-2, col, weight);
+			gameApp.SetStoneWeight(row-3, col, weight);
+		}
+		
+	}
+	function Two_D1(row, col, color){
+		//FREE	--**--	-> -***-- or --***-  or *-**-- or --**-*
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(col-1>0 && row-1>0 && col+3<BOARD_SIZE && row+3<BOARD_SIZE)
+			if(stone[row-1][col-1]==UNSET && stone[row-2][col-2]==UNSET 
+					&& stone[row+2][col+2]==UNSET && stone[row+3][col+3]==UNSET)
+				Two_D1_FREE(row, col, color);
+		
+		//SEMI	0-**--	-> 0-***- or (if 0-**----> 0-**-*-
+			else if(stone[row-1][col-1]==UNSET && stone[row-2][col-2]!=UNSET && stone[row-2][col-2]!=color
+					&& stone[row+2][col+2]==UNSET && stone[row+3][col+3]==UNSET)
+				Two_D1_SEMI(row, col, color, 0);
+			//--**-0	-> -***- or (if ---**-0	-> -*-**-0
+			else if(stone[row-1][col-1]==UNSET && stone[row-2][col-2]==UNSET && stone[row+3][col+3]!=color 
+					&& stone[row+2][col+2]==UNSET && stone[row+3][col+3]!=UNSET)
+				Two_D1_SEMI(row, col, color, 1);
+		
+		//BLOCK	0**---	->
+			else if(stone[row-1][col-1]!=UNSET && stone[row-1][col-1]!=color && stone[row+2][col+2]==UNSET && stone[row+3][col+3]==UNSET){
+				if(col+4<BOARD_SIZE && row+4<BOARD_SIZE)
+					if(stone[row+4][col+4]==UNSET)
+						Two_D1_BLK(row, col, color, 0);
+			}
+			
+			// ---**0	->
+			else if(stone[row+2][col+2]!=UNSET && stone[row+2][col+2]!=color && stone[row-1][col-1]==UNSET && stone[row-2][col-2]==UNSET){
+				if(col-3>=0 && row-3>=0)
+					if(stone[row-3][col-3]==UNSET)
+						Two_D1_BLK(row, col, color, 1);
+			}
+	}
+	
+	function Two_D1_FREE(row, col, color){
+		/*
+		 * Free two stones in a row: --**--
+		 */
+		let weight=TWOWEIGHT;
+		let newWeight;
+		let blocked=true;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		newWeight=weight;
+		if(row-3>=0 && col-3>=0)
+			if(stone[row-3][col-3]==UNSET || stone[row-3][col-3]==color){
+				//Free function  ---**--	-> --***-- or -*-**-
+				if(stone[row-3][col-3]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row-1, col-1, newWeight);
+				gameApp.SetStoneWeight(row-2, col-2, newWeight-1);
+				blocked=false;
 
-function gx(c){return GP+c*CL}
-function gy(r){return GP+r*CL}
+			}
+		newWeight=weight;
+		if(row+4<BOARD_SIZE && col+4<BOARD_SIZE){
+			if(stone[row+4][col+4]==UNSET || stone[row+4][col+4]==color){
+				//Free function  --**---	-> --***-- or --**-*-
+				if(stone[row+4][col+4]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row+2, col+2, newWeight);
+				gameApp.SetStoneWeight(row+3, col+3, newWeight-1);
+				blocked=false;
+			}
+		}
+		if(blocked){
+			gameApp.SetStoneWeight(row-1, col-1, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row-2, col-2, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row+2, col+2, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row+3, col+3, Math.trunc(weight/4));
+		}
+	}
+	
+	function Two_D1_SEMI(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is kinda blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=SEMITWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//0-**--
+		if(pos==0){
+			if(col+4<BOARD_SIZE && row+4<BOARD_SIZE)
+				if(stone[row+4][col+4]==UNSET)
+					gameApp.SetStoneWeight(row+3, col+3, weight);//if 0-**--- -> 0-**-*-
+			gameApp.SetStoneWeight(row+2, col+2, weight);
+		}
+		//--**-0
+		if(pos==1){
+			if (col-3>=0 && row-3>=0)
+				if(stone[row-3][col-3]==UNSET)
+					gameApp.SetStoneWeight(row-2, col-2, weight);
+			gameApp.SetStoneWeight(row-1, col-1, weight);
+		}
+	}
+	
+	function Two_D1_BLK(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(pos==0){
+			//0**---
+			gameApp.SetStoneWeight(row+2, col+2, weight);
+			gameApp.SetStoneWeight(row+3, col+3, weight);
+			gameApp.SetStoneWeight(row+4, col+4, weight);
+		}
+		if(pos==1){
+			//---**0
+			gameApp.SetStoneWeight(row-1, col-1, weight);
+			gameApp.SetStoneWeight(row-2, col-2, weight);
+			gameApp.SetStoneWeight(row-3, col-3, weight);
+		}
+		
+	}
+	
+	function Two_D2(row, col, color){
+		//FREE	--**--	-> -***-- or --***-  or *-**-- or --**-*
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		
+		if(col-2>0 && col+2<BOARD_SIZE && row-1>0 && row+3<BOARD_SIZE )
+			if(stone[row-1][col+1]==UNSET && stone[row-2][col+2]==UNSET 
+					&& stone[row+2][col-2]==UNSET && stone[row+3][col-3]==UNSET)
+				Two_D2_FREE(row, col, color);
+		
+		//SEMI	0-**--	-> 0-***- or (if 0-**----> 0-**-*-
+			else if(stone[row-1][col+1]==UNSET && stone[row-2][col+2]!=UNSET && stone[row-2][col+2]!=color
+					&& stone[row+2][col-2]==UNSET && stone[row+3][col-3]==UNSET)
+				Two_D2_SEMI(row, col, color, 0);
+			//--**-0	-> -***- or (if ---**-0	-> -*-**-0
+			else if(stone[row-1][col+1]==UNSET && stone[row-2][col+2]==UNSET && stone[row+3][col-3]!=color 
+					&& stone[row+2][col-2]==UNSET && stone[row+3][col-3]!=UNSET)
+				Two_D2_SEMI(row, col, color, 1);
+		
+		//BLOCK	0**---	->
+			else if(stone[row-1][col+1]!=UNSET && stone[row-1][col+1]!=color && stone[row+2][col-2]==UNSET && stone[row+3][col-3]==UNSET){
+				if(row+4<BOARD_SIZE && col-4>=0)
+					if(stone[row+4][col-4]==UNSET)
+						Two_D2_BLK(row, col, color, 0);
+			}
+			
+			// ---**0	->
+			else if(stone[row+2][col-2]!=UNSET && stone[row+2][col-2]!=color && stone[row-1][col+1]==UNSET && stone[row-2][col+2]==UNSET){
+				if(row-3>=0 && col+3<BOARD_SIZE)
+					if(stone[row-3][col+3]==UNSET)
+						Two_D2_BLK(row, col, color, 1);
+			}
+	}
+	
+	function Two_D2_FREE(row, col, color){
+		/*
+		 * Free two stones in a row: --**--
+		 */
+		let weight=TWOWEIGHT;
+		let newWeight;
+		let blocked=true;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		newWeight=weight;
+		if(row-3>=0 && col+3<BOARD_SIZE)
+			if(stone[row-3][col+3]==UNSET || stone[row-3][col+3]==color){
+				//Free function  ---**--	-> --***-- or -*-**-
+				if(stone[row-3][col+3]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row-1, col+1, newWeight);
+				gameApp.SetStoneWeight(row-2, col+2, newWeight-1);
+				blocked=false;
 
-function drawBoard(){
-  const g=cx.createLinearGradient(0,0,CS,CS);
-  g.addColorStop(0,'#d6aa45');g.addColorStop(.5,'#c8982a');g.addColorStop(1,'#b88014');
-  cx.fillStyle=g;cx.fillRect(0,0,CS,CS);
-  cx.save();cx.globalAlpha=.04;
-  for(let i=0;i<22;i++){
-    const y0=(i/22)*CS;
-    cx.beginPath();cx.moveTo(0,y0);
-    cx.bezierCurveTo(CS*.3,y0+9*Math.sin(i*.8),CS*.7,y0-7*Math.cos(i*.5),CS,y0+5*Math.sin(i));
-    cx.strokeStyle='#3a2000';cx.lineWidth=1.5;cx.stroke();
-  }
-  cx.restore();
-  cx.strokeStyle='#7a4e10';cx.lineWidth=.7;
-  for(let i=0;i<N;i++){
-    cx.beginPath();cx.moveTo(gx(0),gy(i));cx.lineTo(gx(N-1),gy(i));cx.stroke();
-    cx.beginPath();cx.moveTo(gx(i),gy(0));cx.lineTo(gx(i),gy(N-1));cx.stroke();
-  }
-  cx.strokeStyle='#5a3a08';cx.lineWidth=1.6;
-  cx.strokeRect(GP,GP,(N-1)*CL,(N-1)*CL);
-  cx.fillStyle='#5a3a08';
-  [[3,3],[3,7],[3,11],[7,3],[7,7],[7,11],[11,3],[11,7],[11,11]].forEach(([r,c])=>{
-    cx.beginPath();cx.arc(gx(c),gy(r),3.5,0,Math.PI*2);cx.fill();
-  });
-  cx.fillStyle='rgba(90,58,16,.75)';cx.font='10px serif';
-  cx.textAlign='center';cx.textBaseline='middle';
-  for(let i=0;i<N;i++){
-    cx.fillText(COL_LBL[i],gx(i),GP/2);
-    cx.fillText(ROW_LBL[i],GP/2,gy(i));
-  }
+			}
+		newWeight=weight;
+		if(row+4<BOARD_SIZE && col-4>=0){
+			if(stone[row+4][col-4]==UNSET || stone[row+4][col-4]==color){
+				//Free function  --**---	-> --***-- or --**-*-
+				if(stone[row+4][col-4]==color)
+					newWeight+=5;
+				gameApp.SetStoneWeight(row+2, col-2, newWeight);
+				gameApp.SetStoneWeight(row+3, col-3, newWeight-1);
+				blocked=false;
+			}
+		}
+		if(blocked){
+			gameApp.SetStoneWeight(row-1, col+1, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row-2, col+2, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row+2, col-2, Math.trunc(weight/4));
+			gameApp.SetStoneWeight(row+3, col-3, Math.trunc(weight/4));
+		}
+	}
+	
+	function Two_D2_SEMI(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is kinda blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=SEMITWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//0-**--
+		if(pos==0){
+			if(row+4<BOARD_SIZE && col-4>=0)
+				if(stone[row+4][col-4]==UNSET)
+					gameApp.SetStoneWeight(row+3, col-3, weight);//if 0-**--- -> 0-**-*-
+			gameApp.SetStoneWeight(row+2, col-2, weight);
+		}
+		//--**-0
+		if(pos==1){
+			if (row-3>=0 && col+3<BOARD_SIZE)
+				if(stone[row-3][col+3]==UNSET)
+					gameApp.SetStoneWeight(row-2, col+2, weight);
+			gameApp.SetStoneWeight(row-1, col+1, weight);
+		}
+	}
+	
+	function Two_D2_BLK(row, col, color, pos){
+		/*
+		 * two stones in a row while one end is blocked
+		 * pos = 0 means the starting pos is block, pos=1 means the end pos is block, start and end position is related to the scan order
+		 */
+		let weight=BLKTWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(pos==0){
+			//0**---
+			gameApp.SetStoneWeight(row+2, col-2, weight);
+			gameApp.SetStoneWeight(row+3, col-3, weight);
+			gameApp.SetStoneWeight(row+4, col-4, weight);
+		}
+		if(pos==1){
+			//---**0
+			gameApp.SetStoneWeight(row-1, col+1, weight);
+			gameApp.SetStoneWeight(row-2, col+2, weight);
+			gameApp.SetStoneWeight(row-3, col+3, weight);
+		}
+		
+	}
+	
+	function One_One_H(row, col, color){
+		/*
+		 *  -*-*- -> -***-
+		 */
+		let set=false;
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && col+3<BOARD_SIZE)
+			if(stone[row][col-1]==UNSET && stone[row][col+3]==UNSET){
+				if(col-2>=0 && col+4<BOARD_SIZE){
+					//--*-*--	-> --***-- or -**-*-- or --*-**-
+					if(stone[row][col-2]==UNSET && stone[row][col+4]==UNSET){
+						gameApp.SetStoneWeight(row, col+1, weight);
+						gameApp.SetStoneWeight(row, col-1, weight-1);
+						gameApp.SetStoneWeight(row, col+3, weight-1);
+						set=true;
+					}
+				}
+				if(col-2>=0 && set==false){
+					//--*-*-	-> --***-	or -**-*-
+					if(stone[row][col-2]==UNSET){
+						gameApp.SetStoneWeight(row, col+1, weight-10);
+						gameApp.SetStoneWeight(row, col-1, weight-11);
+						set=true;
+					}
+				}
+				if(col+4<BOARD_SIZE && set==false){
+					//-*-*--	-> -*-*-- 	or -*-**-
+					if(stone[row][col+4]==UNSET){
+						gameApp.SetStoneWeight(row, col+1, weight-10);
+						gameApp.SetStoneWeight(row, col+3, weight-11);
+						set=true;
+					}
+				}
+				if(set==false){
+					//0-*-*-0	-> 0-***-0
+					gameApp.SetStoneWeight(row, col+1, Math.trunc(weight/4));
+				}			
+			}
+	}
+	
+	function One_One_V(row, col, color){
+		/*
+		 *  -*-*- -> -***-
+		 */
+		let set=false;
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(row-1>=0 && row+3<BOARD_SIZE)
+			if(stone[row-1][col]==UNSET && stone[row+3][col]==UNSET){
+				if(row-2>=0 && row+4<BOARD_SIZE){
+					//--*-*--	-> --***-- or -**-*-- or --*-**-
+					if(stone[row-2][col]==UNSET && stone[row+4][col]==UNSET){
+						gameApp.SetStoneWeight(row+1, col, weight);
+						gameApp.SetStoneWeight(row-1, col, weight-1);
+						gameApp.SetStoneWeight(row+3, col, weight-1);
+						set=true;
+					}
+				}
+				if(row-2>=0 && set==false){
+					//--*-*-	-> --***-	or -**-*-
+					if(stone[row-2][col]==UNSET){
+						gameApp.SetStoneWeight(row+1, col, weight-10);
+						gameApp.SetStoneWeight(row-1, col, weight-11);
+						set=true;
+					}
+				}
+				if(row+4<BOARD_SIZE && set==false){
+					//-*-*--	-> -*-*-- 	or -*-**-
+					if(stone[row+4][col]==UNSET){
+						gameApp.SetStoneWeight(row+1, col, weight-10);
+						gameApp.SetStoneWeight(row+3, col, weight-11);
+						set=true;
+					}
+				}
+				if(set==false){
+					//0-*-*-0	-> 0-***-0
+					gameApp.SetStoneWeight(row+1, col, Math.trunc(weight/4));
+				}			
+			}
+	}
+	
+	function One_One_D1(row, col, color){
+		/*
+		 *  -*-*- -> -***-
+		 */
+		let set=false;
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && col+3<BOARD_SIZE && row-1>=0 && row+3<BOARD_SIZE)
+			if(stone[row-1][col-1]==UNSET && stone[row+3][col+3]==UNSET){
+				if(col-2>=0 && col+4<BOARD_SIZE && row-2>=0 && row+4<BOARD_SIZE){
+					//--*-*--	-> --***-- or -**-*-- or --*-**-
+					if(stone[row-2][col-2]==UNSET && stone[row+4][col+4]==UNSET){
+						gameApp.SetStoneWeight(row+1, col+1, weight);
+						gameApp.SetStoneWeight(row-1, col-1, weight-1);
+						gameApp.SetStoneWeight(row+3, col+3, weight-1);
+						set=true;
+					}
+				}
+				if(col-2>=0 && row-2>=0 && set==false){
+					//--*-*-	-> --***-	or -**-*-
+					if(stone[row-2][col-2]==UNSET){
+						gameApp.SetStoneWeight(row+1, col+1, weight-10);
+						gameApp.SetStoneWeight(row-1, col-1, weight-11);
+						set=true;
+					}
+				}
+				if(col+4<BOARD_SIZE && row+4<BOARD_SIZE && set==false){
+					//-*-*--	-> -*-*-- 	or -*-**-
+					if(stone[row+4][col+4]==UNSET){
+						gameApp.SetStoneWeight(row+1, col+1, weight-10);
+						gameApp.SetStoneWeight(row+3, col+3, weight-11);
+						set=true;
+					}
+				}
+				if(set==false){
+					//0-*-*-0	-> 0-***-0
+					gameApp.SetStoneWeight(row+1, col+1, Math.trunc(weight/4));
+				}			
+			}
+	}
+
+	function One_One_D2(row, col, color){
+		/*
+		 *  -*-*- -> -***-
+		 */
+		let set=false;
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(row-1>=0 && row+3<BOARD_SIZE && col+1<BOARD_SIZE && col-3>=0)
+			if(stone[row-1][col+1]==UNSET && stone[row+3][col-3]==UNSET){
+				if(row-2>=0 && col+2<BOARD_SIZE && row+4<BOARD_SIZE && col-4>=0){
+					//--*-*--	-> --***-- or -**-*-- or --*-**-
+					if(stone[row-2][col+2]==UNSET && stone[row+4][col-4]==UNSET){
+						gameApp.SetStoneWeight(row+1, col-1, weight);
+						gameApp.SetStoneWeight(row-1, col+1, weight-1);
+						gameApp.SetStoneWeight(row+3, col-3, weight-1);
+						set=true;
+					}
+				}
+				if(row-2>=0 && col+2<BOARD_SIZE && set==false){
+					//--*-*-	-> --***-	or -**-*-
+					if(stone[row-2][col+2]==UNSET){
+						gameApp.SetStoneWeight(row+1, col-1, weight-10);
+						gameApp.SetStoneWeight(row-1, col+1, weight-11);
+						set=true;
+					}
+				}
+				if(row+4<BOARD_SIZE && col-4>=0 && set==false){
+					//-*-*--	-> -*-*-- 	or -*-**-
+					if(stone[row+4][col-4]==UNSET){
+						gameApp.SetStoneWeight(row+1, col-1, weight-10);
+						gameApp.SetStoneWeight(row+3, col-3, weight-11);
+						set=true;
+					}
+				}
+				if(set==false){
+					//0-*-*-0	-> 0-***-0
+					gameApp.SetStoneWeight(row+1, col-1, Math.trunc(weight/4));
+				}			
+			}
+	}
+	
+	
+	function One__One_H(row, col, color){
+		/*
+		 *   -*--*- -> -**-*- or -*-**-
+		 */
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && col+4<BOARD_SIZE){
+			if(stone[row][col-1]==UNSET && stone[row][col+4]==UNSET){
+				gameApp.SetStoneWeight(row, col+1, weight);
+				gameApp.SetStoneWeight(row, col+2, weight);
+			}
+			else if(!(stone[row][col-1]!=UNSET && stone[row][col+4]!=UNSET)){
+				gameApp.SetStoneWeight(row, col+1, Math.trunc(weight/2));
+				gameApp.SetStoneWeight(row, col+2, Math.trunc(weight/2));
+			}
+		}
+				
+	}
+
+	function One__One_V(row, col, color){
+		/*
+		 *   -*--*- -> -**-*- or -*-**-
+		 */
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(row-1>=0 && row+4<BOARD_SIZE){
+			if(stone[row-1][col]==UNSET && stone[row+4][col]==UNSET){
+				gameApp.SetStoneWeight(row+1, col, weight);
+				gameApp.SetStoneWeight(row+2, col, weight);
+			}
+			else if(!(stone[row-1][col]!=UNSET && stone[row+4][col]!=UNSET)){
+				gameApp.SetStoneWeight(row+1, col, Math.trunc(weight/2));
+				gameApp.SetStoneWeight(row+2, col, Math.trunc(weight/2));
+			}
+		}
+	}
+
+	function One__One_D1(row, col, color){
+		/*
+		 *   -*--*- -> -**-*- or -*-**-
+		 */
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(col-1>=0 && col+4<BOARD_SIZE && row-1>=0 && row+4<BOARD_SIZE){
+			if(stone[row-1][col-1]==UNSET && stone[row+4][col+4]==UNSET){
+				gameApp.SetStoneWeight(row+1, col+1, weight);
+				gameApp.SetStoneWeight(row+2, col+2, weight);
+			}
+			else if(!(stone[row-1][col-1]!=UNSET && stone[row+4][col+4]!=UNSET)){
+				gameApp.SetStoneWeight(row+1, col+1, Math.trunc(weight/2));
+				gameApp.SetStoneWeight(row+2, col+2, Math.trunc(weight/2));
+			}
+		}
+	}
+
+	function One__One_D2(row, col, color){
+		/*
+		 *   -*--*- -> -**-*- or -*-**-
+		 */
+		let weight=TWOWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		if(row-1>=0 && row+4<BOARD_SIZE && col+1<BOARD_SIZE && col-4>=0){
+			if(stone[row-1][col+1]==UNSET && stone[row+4][col-4]==UNSET){
+				gameApp.SetStoneWeight(row+1, col-1, weight);
+				gameApp.SetStoneWeight(row+2, col-2, weight);
+			}
+			else if(!(stone[row-1][col+1]!=UNSET && stone[row+4][col-4]!=UNSET)){
+				gameApp.SetStoneWeight(row+1, col-1, Math.trunc(weight/2));
+				gameApp.SetStoneWeight(row+2, col-2, Math.trunc(weight/2));
+			}
+		}
+	}
+	
+	function Check_Single_H(){
+		/*
+		 * Check single stones in H direction
+		 */
+		let set;
+		for(let row=0;row<BOARD_SIZE;++row)
+			for(let col=0;col<BOARD_SIZE;++col){
+				set=false;
+				//---*---
+				if(col-3>=0 && col+3<BOARD_SIZE){
+					if(stone[row][col-3]==UNSET && stone[row][col-2]==UNSET && stone[row][col-1]==UNSET &&
+						stone[row][col+3]==UNSET && stone[row][col+2]==UNSET && stone[row][col+1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_FREE_H(row, col, stone[row][col]);
+						set=true;
+					}
+				}
+				//--*----
+				if(set==false && col-2>=0 && col+4<BOARD_SIZE){
+					if(stone[row][col-2]==UNSET && stone[row][col-1]==UNSET && stone[row][col+4]==UNSET &&
+						stone[row][col+3]==UNSET && stone[row][col+2]==UNSET && stone[row][col+1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_H(row, col, stone[row][col], 0);
+						set=true;
+					}
+				}
+				//----*--
+				if(set==false && col-4>=0 && col+2<BOARD_SIZE){
+					if(stone[row][col-3]==UNSET && stone[row][col-2]==UNSET && stone[row][col-1]==UNSET &&
+						stone[row][col-4]==UNSET && stone[row][col+2]==UNSET && stone[row][col+1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_H(row, col, stone[row][col], 1);
+						set=true;
+					}
+				}
+			}
+	}
+	
+	function SetSingleWeights_SEMI_H(row, col, color, pos){
+		let weight=ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//--*----
+		if(pos==0){
+			gameApp.SetStoneWeight(row, col+1, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row, col+2, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row, col+3, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row, col+4, Math.trunc(weight/4));
+		}
+		//----*--
+		else if(pos==1){
+			gameApp.SetStoneWeight(row, col-1, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row, col-2, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row, col-3, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row, col-4, Math.trunc(weight/4));
+		}
+	}
+	
+	function SetSingleWeights_FREE_H(row, col, color){
+		/*
+		 * ---*---
+		 */
+		let weight=ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		gameApp.SetStoneWeight(row, col-1, weight);
+		gameApp.SetStoneWeight(row, col+1, weight);
+		gameApp.SetStoneWeight(row, col-2, weight-1);
+		gameApp.SetStoneWeight(row, col+2, weight-1);
+		gameApp.SetStoneWeight(row, col-3, weight-2);
+		gameApp.SetStoneWeight(row, col+3, weight-2);
+	}
+	
+	function Check_Single_V(){
+		/*
+		 * Check single stones in V direction
+		 */
+		let set;
+		for(let row=0;row<BOARD_SIZE;++row)
+			for(let col=0;col<BOARD_SIZE;++col){
+				set=false;
+				//---*---
+				if(row-3>=0 && row+3<BOARD_SIZE){
+					if(stone[row-3][col]==UNSET && stone[row-2][col]==UNSET && stone[row-1][col]==UNSET &&
+						stone[row+3][col]==UNSET && stone[row+2][col]==UNSET && stone[row+1][col]==UNSET && stone[row][col]!=UNSET){
+							SetSingleWeights_FREE_V(row, col, stone[row][col]);
+							set=true;
+					}
+				}
+				//--*----
+				if(set==false && row-2>=0 && row+4<BOARD_SIZE){
+					if(stone[row-2][col]==UNSET && stone[row-1][col]==UNSET && stone[row+4][col]==UNSET &&
+						stone[row+3][col]==UNSET && stone[row+2][col]==UNSET && stone[row+1][col]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_V(row, col, stone[row][col], 0);
+						set=true;
+					}
+				}
+				//----*--
+				if(set==false && row-4>=0 && row+2<BOARD_SIZE){
+					if(stone[row-3][col]==UNSET && stone[row-2][col]==UNSET && stone[row-1][col]==UNSET &&
+						stone[row-4][col]==UNSET && stone[row+2][col]==UNSET && stone[row+1][col]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_V(row, col, stone[row][col], 1);
+						set=true;
+					}
+				}
+			}
+	}
+	
+	function SetSingleWeights_SEMI_V(row, col, color, pos){
+		let weight=ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//--*----
+		if(pos==0){
+			gameApp.SetStoneWeight(row+1, col, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+2, col, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+3, col, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+4, col, Math.trunc(weight/4));
+		}
+		//----*--
+		else if(pos==1){
+			gameApp.SetStoneWeight(row-1, col, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-2, col, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-3, col, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-4, col, Math.trunc(weight/4));
+		}
+	}
+	
+	function SetSingleWeights_FREE_V(row, col, color){
+		/*
+		 * ---*---
+		 */
+		let weight=ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		gameApp.SetStoneWeight(row-1, col, weight);
+		gameApp.SetStoneWeight(row+1, col, weight);
+		gameApp.SetStoneWeight(row-2, col, weight-1);
+		gameApp.SetStoneWeight(row+2, col, weight-1);
+		gameApp.SetStoneWeight(row-3, col, weight-2);
+		gameApp.SetStoneWeight(row+3, col, weight-2);
+	}
+	
+	function Check_Single_D1(){
+		/*
+		 * Check single stones in D1 direction
+		 */
+		let set;
+		for(let row=0;row<BOARD_SIZE;++row)
+			for(let col=0;col<BOARD_SIZE;++col){
+				set=false;
+				//---*---
+				if(col-3>=0 && row-3>=0 && row+3<BOARD_SIZE && col+3<BOARD_SIZE){
+					if(stone[row-3][col-3]==UNSET && stone[row-2][col-2]==UNSET && stone[row-1][col-1]==UNSET &&
+						stone[row+3][col+3]==UNSET && stone[row+2][col+2]==UNSET && stone[row+1][col+1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_FREE_D1(row, col, stone[row][col]);
+						set=true;
+					}
+				}
+				//--*----
+				if(set==false && row-2>=0 && row+4<BOARD_SIZE && col-2>=0 && col+4<BOARD_SIZE){
+					if(stone[row-2][col-2]==UNSET && stone[row-1][col-1]==UNSET && stone[row+4][col+4]==UNSET &&
+						stone[row+3][col+3]==UNSET && stone[row+2][col+2]==UNSET && stone[row+1][col+1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_D1(row, col, stone[row][col], 0);
+						set=true;
+					}
+				}
+				//----*--
+				if(set==false && row-4>=0 && row+2<BOARD_SIZE && col-4>=0 && col+2<BOARD_SIZE){
+					if(stone[row-3][col-3]==UNSET && stone[row-2][col-2]==UNSET && stone[row-1][col-1]==UNSET &&
+						stone[row-4][col-4]==UNSET && stone[row+2][col+2]==UNSET && stone[row+1][col+1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_D1(row, col, stone[row][col], 1);
+						set=true;
+					}
+				}
+			}
+	}
+	
+	function SetSingleWeights_SEMI_D1(row, col, color, pos){
+		let weight=ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//--*----
+		if(pos==0){
+			gameApp.SetStoneWeight(row+1, col+1, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+2, col+2, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+3, col+3, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+4, col+4, Math.trunc(weight/4));
+		}
+		//----*--
+		else if(pos==1){
+			gameApp.SetStoneWeight(row-1, col-1, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-2, col-2, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-3, col-3, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-4, col-4, Math.trunc(weight/4));
+		}
+	}
+	
+	function SetSingleWeights_FREE_D1(row, col, color){
+		/*
+		 * ---*---
+		 */
+		let weight=ONEWEIGHT+1;	//Prefer diagonal direction to others
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		gameApp.SetStoneWeight(row-1, col-1, weight);
+		gameApp.SetStoneWeight(row+1, col+1, weight);
+		gameApp.SetStoneWeight(row-2, col-2, weight-1);
+		gameApp.SetStoneWeight(row+2, col+2, weight-1);
+		gameApp.SetStoneWeight(row-3, col-3, weight-2);
+		gameApp.SetStoneWeight(row+3, col+3, weight-2);
+	}
+	
+	function Check_Single_D2(){
+		/*
+		 * Check single stones in D2 direction
+		 */
+		let set;
+		for(let row=0;row<BOARD_SIZE;++row)
+			for(let col=0;col<BOARD_SIZE;++col){
+				set=false;
+				//---*---
+				if(row-3>=0 && col+3<BOARD_SIZE && col-3>=0 && row+3<BOARD_SIZE){
+					if(stone[row-3][col+3]==UNSET && stone[row-2][col+2]==UNSET && stone[row-1][col+1]==UNSET &&
+						stone[row+3][col-3]==UNSET && stone[row+2][col-2]==UNSET && stone[row+1][col-1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_FREE_D2(row, col, stone[row][col]);
+						set=true;
+					}
+				}
+				//--*----
+				if(set==false && row-2>=0 && row+4<BOARD_SIZE && col+2<BOARD_SIZE && col-4>=0){
+					if(stone[row-2][col+2]==UNSET && stone[row-1][col+1]==UNSET && stone[row+4][col-4]==UNSET &&
+						stone[row+3][col-3]==UNSET && stone[row+2][col-2]==UNSET && stone[row+1][col-1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_D2(row, col, stone[row][col], 0);
+						set=true;
+					}
+				}
+				//----*--
+				if(set==false && row-4>=0 && row+2<BOARD_SIZE && col+4<BOARD_SIZE && col-2>=0){
+					if(stone[row-3][col+3]==UNSET && stone[row-2][col+2]==UNSET && stone[row-1][col+1]==UNSET &&
+						stone[row-4][col+4]==UNSET && stone[row+2][col-2]==UNSET && stone[row+1][col-1]==UNSET && stone[row][col]!=UNSET){
+						SetSingleWeights_SEMI_D2(row, col, stone[row][col], 1);
+						set=true;
+					}
+				}
+			}
+	}
+	
+	function SetSingleWeights_SEMI_D2(row, col, color, pos){
+		let weight=ONEWEIGHT;
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		//--*----
+		if(pos==0){
+			gameApp.SetStoneWeight(row+1, col-1, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+2, col-2, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+3, col-3, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row+4, col-4, Math.trunc(weight/4));
+		}
+		//----*--
+		else if(pos==1){
+			gameApp.SetStoneWeight(row-1, col+1, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-2, col+2, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-3, col+3, Math.trunc(weight/2));
+			gameApp.SetStoneWeight(row-4, col+4, Math.trunc(weight/4));
+		}
+	}
+	
+	function SetSingleWeights_FREE_D2(row, col, color){
+		/*
+		 * ---*---
+		 */
+		let weight=ONEWEIGHT+1;//prefer diagonal direction to others
+		if(gameApp.GetTrackSize() %2==color)
+			weight=weight+ATTACK;
+		gameApp.SetStoneWeight(row-1, col+1, weight);
+		gameApp.SetStoneWeight(row+1, col-1, weight);
+		gameApp.SetStoneWeight(row+2, col-2, weight-1);
+		gameApp.SetStoneWeight(row-2, col+2, weight-1);
+		gameApp.SetStoneWeight(row+3, col-3, weight-2);
+		gameApp.SetStoneWeight(row-3, col+3, weight-2);
+	}
+
+
+  Go();
 }
 
-function drawStone(r,c,color,isLast=false,alpha=1){
-  const x=gx(c),y=gy(r);
-  cx.save();cx.globalAlpha=alpha;
-  cx.shadowColor='rgba(0,0,0,.55)';cx.shadowBlur=8;cx.shadowOffsetX=2;cx.shadowOffsetY=3;
-  const grad=cx.createRadialGradient(x-SR*.28,y-SR*.32,SR*.06,x,y,SR);
-  if(color===1){
-    grad.addColorStop(0,'#606060');grad.addColorStop(.3,'#252525');grad.addColorStop(1,'#050505');
-  }else{
-    grad.addColorStop(0,'#ffffff');grad.addColorStop(.45,'#e8e2d4');grad.addColorStop(1,'#aaa098');
-  }
-  cx.beginPath();cx.arc(x,y,SR,0,Math.PI*2);cx.fillStyle=grad;cx.fill();cx.restore();
-  if(isLast){
-    cx.beginPath();cx.arc(x,y,SR*.34,0,Math.PI*2);
-    cx.strokeStyle=color===1?'rgba(255,255,255,.65)':'rgba(80,50,10,.65)';
-    cx.lineWidth=1.5;cx.stroke();
-  }
-}
-
-function drawX(r,c){
-  const x=gx(c),y=gy(r),m=SR*.5;
-  cx.save();cx.strokeStyle='#e03030';cx.lineWidth=2.2;cx.globalAlpha=.9;
-  cx.beginPath();cx.moveTo(x-m,y-m);cx.lineTo(x+m,y+m);cx.moveTo(x+m,y-m);cx.lineTo(x-m,y+m);
-  cx.stroke();cx.restore();
-}
-
-function render(){
-  drawBoard();
-  // Build move-number lookup from hist
-  const numMap=new Map();
-  if(showMoveNums) hist.forEach((h,i)=>numMap.set(h.r*N+h.c, i+1));
-  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
-    if(!board[r][c]) continue;
-    const isLast=lastPos&&lastPos[0]===r&&lastPos[1]===c;
-    drawStone(r,c,board[r][c],isLast);
-    if(showMoveNums&&numMap.has(r*N+c)){
-      const n=numMap.get(r*N+c);
-      const x=gx(c),y=gy(r);
-      const color=board[r][c]===1?'rgba(255,255,255,.9)':'rgba(30,15,0,.85)';
-      cx.save();
-      cx.font=`bold ${n>9?10:12}px sans-serif`;
-      cx.textAlign='center';cx.textBaseline='middle';
-      cx.fillStyle=color;
-      cx.fillText(n,x,y);
-      cx.restore();
-    }
-  }
-}
-
-// ═══════════ ZOOM ═══════════
-function detectMobile(){return window.innerWidth<=700}
-
-function applyTransform(animate){
-  if(animate)twEl.classList.add('animated');
-  else twEl.classList.remove('animated');
-  twEl.style.transform=`translate(${twX}px,${twY}px) scale(${curScale})`;
-}
-
-function clamp(vpW,vpH,s){
-  twX=Math.max(Math.min(0,vpW-CS*s),Math.min(0,twX));
-  twY=Math.max(Math.min(0,vpH-CS*s),Math.min(0,twY));
-}
-
-function zoomFit(animate=true){
-  const vpW=vpEl.clientWidth,vpH=vpEl.clientHeight;
-  if(!vpW||!vpH) return;
-  baseScale=Math.min(vpW/CS,vpH/CS);
-  curScale=baseScale;
-  twX=(vpW-CS*curScale)/2;
-  twY=(vpH-CS*curScale)/2;
-  zoomState='out';
-  applyTransform(animate);
-  // Show hint briefly then fade
-  zhEl.classList.remove('hidden');
-}
-
-function zoomInto(r,c,animate=true){
-  const vpW=vpEl.clientWidth,vpH=vpEl.clientHeight;
-  if(!vpW||!vpH) return;
-  // Show ~6 cells across, but respect physical limits
-  zoomScale=Math.min(2.8,Math.max(baseScale*1.8,vpW/(CL*6)));
-  curScale=zoomScale;
-  const focX=gx(c),focY=gy(r);
-  twX=vpW/2-focX*curScale;
-  twY=vpH/2-focY*curScale;
-  clamp(vpW,vpH,curScale);
-  zoomState='in';
-  applyTransform(animate);
-  zhEl.classList.add('hidden');
-}
-
-function initZoom(){
-  isMobile=detectMobile();
-  if(isMobile){
-    vpEl.style.width=''; vpEl.style.height='';
-  }else{
-    vpEl.style.width=CS+'px'; vpEl.style.height=CS+'px';
-    curScale=1;twX=0;twY=0;
-    applyTransform(false);
-    zoomState='out';
-    zhEl.classList.add('hidden');
-  }
-}
-
-window.addEventListener('resize',()=>{
-  isMobile=detectMobile();
-  if(isMobile){
-    vpEl.style.width=''; vpEl.style.height='';
-    requestAnimationFrame(()=>zoomFit(false));
-  }else{
-    vpEl.style.width=CS+'px'; vpEl.style.height=CS+'px';
-    curScale=1;twX=0;twY=0;
-    applyTransform(false);
-    zoomState='out';
-  }
-});
-
-// ═══════════ HIT DETECTION ═══════════
-function clientToCell(clientX,clientY){
-  const vr=vpEl.getBoundingClientRect();
-  const vx=clientX-vr.left;
-  const vy=clientY-vr.top;
-  const canX=(vx-twX)/curScale;
-  const canY=(vy-twY)/curScale;
-  const c=Math.round((canX-GP)/CL);
-  const r=Math.round((canY-GP)/CL);
-  // Also check we're close enough to an intersection (within 0.48 cells)
-  const cx2=GP+c*CL, cy2=GP+r*CL;
-  const dist=Math.hypot(canX-cx2,canY-cy2);
-  if(dist>CL*0.48) return null;
-  return(r>=0&&r<N&&c>=0&&c<N)?[r,c]:null;
-}
-
-function isEdgeTap(clientX,clientY){
-  const vr=vpEl.getBoundingClientRect();
-  const vx=clientX-vr.left;
-  const vy=clientY-vr.top;
-  const mx=vr.width*0.13;
-  const my=vr.height*0.13;
-  return vx<mx||vx>vr.width-mx||vy<my||vy>vr.height-my;
-}
-
-// ═══════════ TAP HANDLER ═══════════
-function onTap(clientX,clientY){
-  if(thinking) return;
-  if(gMode==='pvc'&&curP===aiCol) return;
-
-  if(isMobile){
-    if(zoomState==='out'){
-      // First tap → zoom in
-      const cell=clientToCell(clientX,clientY);
-      const r=cell?cell[0]:7, c=cell?cell[1]:7;
-      zoomInto(r,c);
-    }else{
-      // Second tap
-      if(isEdgeTap(clientX,clientY)){
-        zoomFit(); return;
+  </script>
+  <script>
+    // Browser game shell around the migrated 2009 Java analyzer.
+    const I18N = {
+      en: {
+        title: 'Gomoku', languageLabel: 'Language', languageEnglish: 'English', languageChinese: '中文', selectedOptions: 'Selected game options', statusNotStarted: 'Click Start Game.',
+        blackLabel: 'Black / Player 1', whiteLabel: 'White / Player 2', forbiddenLabel: 'Forbidden moves',
+        human: 'Human', computer: 'Computer', forbiddenOff: 'Off', forbiddenOn: 'On - Black double-three, double-four, overline forbidden',
+        startGame: 'Start Game', startNewGame: 'Start New Game', close: 'Close', undo: 'Undo', showWeights: 'Show AI Weights', hideWeights: 'Hide AI Weights', clearBoard: 'Clear Board', showSteps: 'Show Steps', hideSteps: 'Hide Steps', saveGame: 'Save Game', noMovesToSave: 'No moves to save yet.',
+        movesPlayed: 'moves played', lastMove: 'last move', rulesTitle: 'Rules', aboutTitle: 'About',
+        rulesText: 'Board size is 15×15. Black moves first. The game ends when either color has five consecutive stones horizontally, vertically, or diagonally. Optional Renju-style forbidden-move rules prevent Black from playing double-three, double-four, or overline.',
+        aboutText: 'Originally developed by Kai as a college Java programming project in 2009. Ported to the web in 2026.',
+        startDialogHelp: 'Choose players and rule options. Close returns to the current game.',
+        black: 'Black', white: 'White', gameOver: 'Game over.', toMove: '{color} to move ({mode}).', thinking: '{color} computer is thinking...',
+        wins: '{color} wins!', draw: 'Draw: the board is full.', forbiddenMove: 'Forbidden move', forbiddenTitle: 'Forbidden Move', forbiddenDoubleThree: 'double-three', forbiddenDoubleFour: 'double-four', forbiddenOverline: 'overline', ok: 'OK', noCandidates: 'No weighted candidates yet.',
+        stampWin: 'WIN', stampLoss: 'LOSS', stampDraw: 'DRAW'
+      },
+      zh: {
+        title: '五子棋', languageLabel: '语言', languageEnglish: 'English', languageChinese: '中文', selectedOptions: '当前对局设置', statusNotStarted: '请点击“开始游戏”。',
+        blackLabel: '黑棋 / 玩家 1', whiteLabel: '白棋 / 玩家 2', forbiddenLabel: '禁手规则',
+        human: '玩家', computer: '电脑', forbiddenOff: '关闭', forbiddenOn: '开启 - 黑棋三三、四四、长连禁手',
+        startGame: '开始游戏', startNewGame: '开始新游戏', close: '关闭', undo: '悔棋', showWeights: '显示 AI 权重', hideWeights: '隐藏 AI 权重', clearBoard: '清空棋盘', showSteps: '显示步数', hideSteps: '隐藏步数', saveGame: '保存棋谱', noMovesToSave: '当前还没有可保存的棋谱。',
+        movesPlayed: '已下步数', lastMove: '最后一步', rulesTitle: '规则', aboutTitle: '关于',
+        rulesText: '棋盘为 15×15，黑棋先行。横、竖或斜向连续五子即获胜。可选禁手规则会禁止黑棋下出三三、四四或长连。',
+        aboutText: '最初由 Kai 于 2009 年作为大学 Java 编程项目开发。2026 年移植为网页版。',
+        startDialogHelp: '选择玩家和规则设置。关闭窗口会返回当前对局。',
+        black: '黑棋', white: '白棋', gameOver: '游戏结束。', toMove: '{color}走棋（{mode}）。', thinking: '{color}电脑思考中……',
+        wins: '{color}获胜！', draw: '和棋：棋盘已满。', forbiddenMove: '禁手', forbiddenTitle: '禁手', forbiddenDoubleThree: '三三禁手', forbiddenDoubleFour: '四四禁手', forbiddenOverline: '长连禁手', ok: '确定', noCandidates: '暂无可显示的权重点。',
+        stampWin: '胜利', stampLoss: '失败', stampDraw: '和棋'
       }
-      const cell=clientToCell(clientX,clientY);
-      if(!cell){zoomFit();return;}
-      if(isOver){zoomFit();return;}
-      if(board[cell[0]][cell[1]]!==0) return; // occupied, stay zoomed
-      const placed=doPlace(cell[0],cell[1]);
-      if(placed) setTimeout(()=>{if(!isOver)zoomFit();},280);
+    };
+    function detectInitialLang() {
+      const saved = window.localStorage ? localStorage.getItem('gomoku.lang') : null;
+      if (saved === 'en' || saved === 'zh') return saved;
+      const primary = (navigator.language || 'en').toLowerCase();
+      return primary.startsWith('zh') ? 'zh' : 'en';
     }
-    return;
-  }
-
-  // Desktop: direct place
-  if(isOver) return;
-  const cell=clientToCell(clientX,clientY);
-  if(!cell||board[cell[0]][cell[1]]!==0) return;
-  doPlace(cell[0],cell[1]);
-}
-
-// ═══════════ EVENTS ═══════════
-vpEl.addEventListener('mousemove',e=>{
-  if(isMobile||isOver||thinking) return;
-  if(gMode==='pvc'&&curP===aiCol) return;
-  const p=clientToCell(e.clientX,e.clientY);
-  if(!p||board[p[0]][p[1]]!==0){
-    if(hPos){hPos=null;render();}
-    vpEl.style.cursor='default'; return;
-  }
-  vpEl.style.cursor='pointer';
-  if(hPos&&hPos[0]===p[0]&&hPos[1]===p[1]) return;
-  hPos=p; render();
-  const[r,c]=p;
-  const fb=(forbRule&&curP===1)?forbidden(board,r,c):null;
-  drawStone(r,c,curP,false,fb?.15:.32);
-  if(fb) drawX(r,c);
-});
-
-vpEl.addEventListener('mouseleave',()=>{
-  if(hPos){hPos=null;render();}
-  vpEl.style.cursor='default';
-});
-
-vpEl.addEventListener('click',e=>onTap(e.clientX,e.clientY));
-
-vpEl.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
-vpEl.addEventListener('touchend',e=>{
-  e.preventDefault();
-  const t=e.changedTouches[0];
-  onTap(t.clientX,t.clientY);
-},{passive:false});
-
-// ═══════════ GAME FLOW ═══════════
-function initGame(){
-  _killWorker();
-  board=Array.from({length:N},()=>new Array(N).fill(0));
-  curP=1;isOver=false;lastPos=null;hist=[];thinking=false;hPos=null;
-  if(aiTimer){clearTimeout(aiTimer);aiTimer=null;}
-  document.getElementById('winov').classList.remove('show');
-  document.getElementById('imoves').textContent='0';
-  updateStatus();render();
-  if(gMode==='pvc'&&aiCol===1) aiTimer=setTimeout(doAI,400);
-}
-
-function doPlace(r,c,fromAI=false){
-  if(board[r][c]!==0||isOver) return false;
-  if(forbRule&&curP===1){
-    const fb=forbidden(board,r,c);
-    if(fb){if(!fromAI)toast(fbMsg(fb));return false;}
-  }
-  hist.push({r,c,player:curP,snap:board.map(row=>[...row])});
-  board[r][c]=curP;lastPos=[r,c];
-  document.getElementById('imoves').textContent=hist.length;
-  hPos=null;render();
-  if(checkWin(board,r,c,curP)){setTimeout(()=>endGame(curP),120);return true;}
-  if(hist.length>=N*N){setTimeout(()=>endGame(0),120);return true;}
-  curP=curP===1?2:1;
-  updateStatus();
-  if(gMode==='pvc'&&curP===aiCol&&!isOver) aiTimer=setTimeout(doAI,180);
-  return true;
-}
-
-function endGame(w){
-  isOver=true;thinking=false;
-  ['think','mobThink'].forEach(id=>document.getElementById(id).classList.remove('on'));
-  const big=document.getElementById('winbig'),sm=document.getElementById('winsm');
-  if(w===0){big.textContent='平　局';sm.textContent='DRAW';}
-  else{
-    big.textContent=(w===1?'黑棋':'白棋')+' 胜 ！';
-    sm.textContent=w===1?'BLACK WINS':'WHITE WINS';
-    scores[w]++;
-    document.getElementById(w===1?'scb':'scw').textContent=scores[w];
-  }
-  if(isMobile) zoomFit();
-  document.getElementById('winov').classList.add('show');
-  updateStatus();
-}
-
-function updateStatus(){
-  const th=document.getElementById('think');
-  const mt=document.getElementById('mobThink');
-  const el=document.getElementById('stext');
-  const ms=document.getElementById('mobStatus');
-  const mo=document.getElementById('mobTurn');
-  if(isOver){th.classList.remove('on');mt.classList.remove('on');return;}
-  if(thinking){
-    th.classList.add('on');mt.classList.add('on');
-    el.textContent='';ms.textContent='AI 思考中…';mo.textContent='';return;
-  }
-  th.classList.remove('on');mt.classList.remove('on');
-  const name=curP===1?'黑棋':'白棋';
-  const extra=gMode==='pvc'?(curP===aiCol?' (AI)':' (你)'):'';
-  const pip=curP===1?'<span class="pip pb"></span>':'<span class="pip pw"></span>';
-  el.innerHTML=`${pip}${name}${extra} 落子`;
-  ms.textContent=`${name}${extra} 落子`;
-  mo.textContent=curP===1?'⚫':'⚪';
-}
-
-// ═══════════ UNDO ═══════════
-function undoMove(){
-  if(thinking){
-    _killWorker();
-    clearTimeout(aiTimer);
-    ['think','mobThink'].forEach(id=>document.getElementById(id).classList.remove('on'));
-  }
-  if(hist.length===0) return;
-  const toUndo=(gMode==='pvc'&&hist[hist.length-1].player===aiCol)?2:1;
-  const actual=Math.min(toUndo,hist.length);
-  for(let i=0;i<actual;i++) hist.pop();
-  isOver=false;
-  document.getElementById('winov').classList.remove('show');
-  if(hist.length===0){
-    board=Array.from({length:N},()=>new Array(N).fill(0));
-    lastPos=null;curP=1;
-  }else{
-    const prev=hist[hist.length-1];
-    // prev.snap = board BEFORE prev.player moved; re-place their stone to get correct state
-    board=prev.snap.map(row=>[...row]);
-    board[prev.r][prev.c]=prev.player;
-    lastPos=[prev.r,prev.c];
-    curP=prev.player===1?2:1;
-  }
-  document.getElementById('imoves').textContent=hist.length;
-  if(isMobile) zoomFit(false);
-  hPos=null;render();updateStatus();
-}
-
-// ═══════════ WIN CHECK ═══════════
-function checkWin(b,r,c,color){
-  for(const[dr,dc]of DIRS){
-    let cnt=1;
-    for(let i=1;i<6;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==color)break;cnt++;}
-    for(let i=1;i<6;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==color)break;cnt++;}
-    if((forbRule&&color===1)?cnt===5:cnt>=5) return true;
-  }
-  return false;
-}
-
-// ═══════════ FORBIDDEN ═══════════
-function forbidden(b,r,c){
-  if(!forbRule||b[r][c]!==0) return null;
-  b[r][c]=1;
-  for(const[dr,dc]of DIRS){
-    let cnt=1;
-    for(let i=1;i<=5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==1)break;cnt++;}
-    for(let i=1;i<=5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==1)break;cnt++;}
-    if(cnt>=6){b[r][c]=0;return'long';}
-  }
-  let fours=0,threes=0;
-  for(const[dr,dc]of DIRS){
-    const t=dirType(b,r,c,dr,dc);
-    if(t==='four')fours++;else if(t==='three')threes++;
-  }
-  b[r][c]=0;
-  if(fours>=2) return'doubleFour';
-  if(threes>=2) return'doubleThree';
-  return null;
-}
-
-function dirType(b,r,c,dr,dc){
-  const L=[];
-  for(let i=-5;i<=5;i++){
-    const nr=r+dr*i,nc=c+dc*i;
-    L.push(nr<0||nr>=N||nc<0||nc>=N?-1:b[nr][nc]);
-  }
-  let hasFour=false,hasThree=false;
-  for(let ws=1;ws<=5;ws++){
-    const we=ws+4;
-    let mc=0,bl=false;
-    for(let i=ws;i<=we;i++){if(L[i]===1)mc++;else if(L[i]!==0){bl=true;break;}}
-    if(bl)continue;
-    if(mc===5)continue;
-    if(mc===4)hasFour=true;
-    if(mc===3){const lo=ws>0?L[ws-1]:-1,ro=we<10?L[we+1]:-1;if(lo===0&&ro===0)hasThree=true;}
-  }
-  if(!hasThree){
-    for(let ws=0;ws<=5;ws++){
-      const we=ws+5;
-      if(we>10||ws>5||we<5)continue;
-      let mc=0,bl=false;
-      for(let i=ws;i<=we;i++){if(L[i]===1)mc++;else if(L[i]!==0){bl=true;break;}}
-      if(bl||mc!==3)continue;
-      const lo=ws>0?L[ws-1]:-1,ro=we<10?L[we+1]:-1;
-      if(lo===0&&ro===0)hasThree=true;
+    let currentLang = detectInitialLang();
+    function tr(key, vars = {}) {
+      let text = (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+      for (const [k, v] of Object.entries(vars)) text = text.replaceAll('{' + k + '}', v);
+      return text;
     }
-  }
-  return hasFour?'four':hasThree?'three':'other';
-}
-
-function fbMsg(fb){
-  return{long:'禁手：长连',doubleFour:'禁手：四四',doubleThree:'禁手：三三'}[fb]||'禁手';
-}
-
-
-// ─── WebWorker AI ────────────────────────────────────────────────
-let _aiWorker=null;
-function _getWorker(){
-  if(_aiWorker) return _aiWorker;
-  const blob=new Blob([document.getElementById('workerSrc').textContent],{type:'application/javascript'});
-  _aiWorker=new Worker(URL.createObjectURL(blob));
-  return _aiWorker;
-}
-
-function _killWorker(){
-  if(_aiWorker){_aiWorker.terminate();_aiWorker=null;}
-  thinking=false;
-}
-
-function doAI(){
-  if(isOver||curP!==aiCol) return;
-  thinking=true; updateStatus();
-  const w=_getWorker();
-  w.onmessage=function(e){
-    thinking=false;
-    doPlace(e.data.r,e.data.c,true);
-  };
-  w.postMessage({
-    type:'move',
-    board:board.map(row=>[...row]),
-    aiCol,diff,forbRule,
-    histLen:hist.length,
-    isMobile
-  });
-}
-
-
-// ═══════════ TOAST ═══════════
-let toastTmr=null;
-function toast(msg){
-  const el=document.getElementById('toast');
-  el.textContent=msg;el.classList.add('show');
-  if(toastTmr)clearTimeout(toastTmr);
-  toastTmr=setTimeout(()=>el.classList.remove('show'),2400);
-}
-
-function toggleMoveNums(){
-  showMoveNums=!showMoveNums;
-  const btns=document.querySelectorAll('.btn-nums');
-  btns.forEach(b=>{
-    b.textContent=showMoveNums?'隐藏步数':'显示步数';
-    b.style.borderColor=showMoveNums?'var(--gold)':'';
-    b.style.color=showMoveNums?'var(--gold)':'';
-  });
-  render();
-}
-
-// ═══════════ SETUP UI ═══════════
-function selMode(btn){
-  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');setup.mode=btn.dataset.mode;
-  const pvc=setup.mode==='pvc';
-  document.getElementById('csec').style.display=pvc?'block':'none';
-  document.getElementById('dsec').style.display=pvc?'block':'none';
-}
-function selCol(btn){
-  document.querySelectorAll('[data-col]').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');setup.pCol=parseInt(btn.dataset.col);
-}
-function updDiff(v){
-  setup.diff=v;
-  document.getElementById('dval').textContent=v;
-  document.getElementById('dhint').textContent=DHINT[v]||'';
-  const pct=(v-1)/14*100;
-  document.getElementById('dslider').style.background=
-    `linear-gradient(to right,var(--gold) 0%,var(--gold) ${pct}%,var(--bdr-l) ${pct}%,var(--bdr-l) 100%)`;
-}
-function showModal(){document.getElementById('modal').style.display='flex';}
-function startGame(){
-  gMode=setup.mode;diff=setup.diff||5;
-  forbRule=document.getElementById('ftog').checked;
-  if(gMode==='pvc'){pCol=setup.pCol||1;aiCol=pCol===1?2:1;}
-  document.getElementById('imode').textContent=gMode==='pvp'?'双人对战':'人机对战';
-  document.getElementById('idrow').style.display=gMode==='pvc'?'flex':'none';
-  document.getElementById('idiff').textContent=`难度 ${diff}`;
-  document.getElementById('iforb').textContent=forbRule?'启用':'关闭';
-  document.getElementById('modal').style.display='none';
-  // Re-fit board now that modal is gone and flex layout has resolved
-  if(isMobile) requestAnimationFrame(()=>requestAnimationFrame(()=>{ zoomFit(false); initGame(); }));
-  else initGame();
-}
-
-// ═══════════ STARTUP ═══════════
-updDiff(5);
-board=Array.from({length:N},()=>new Array(N).fill(0));
-hist=[];isOver=false;lastPos=null;
-initZoom();
-render();
-showModal();
-</script>
-
-<script type="text/js-worker" id="workerSrc">
-const N=15;
-const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
-const DEPTH=[0,1,1,2,2,3,4,5,6,7,8,8,9,10,11,12];
-let board=Array.from({length:N},()=>new Array(N).fill(0));
-let forbRule=false,isMobile=false;
-let hist={length:0};
-
-// ═══════════ WIN CHECK ═══════════
-function checkWin(b,r,c,color){
-  for(const[dr,dc]of DIRS){
-    let cnt=1;
-    for(let i=1;i<6;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==color)break;cnt++;}
-    for(let i=1;i<6;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==color)break;cnt++;}
-    if((forbRule&&color===1)?cnt===5:cnt>=5) return true;
-  }
-  return false;
-}
-
-// ═══════════ FORBIDDEN ═══════════
-function forbidden(b,r,c){
-  if(!forbRule||b[r][c]!==0) return null;
-  b[r][c]=1;
-  for(const[dr,dc]of DIRS){
-    let cnt=1;
-    for(let i=1;i<=5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==1)break;cnt++;}
-    for(let i=1;i<=5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr<0||nr>=N||nc<0||nc>=N||b[nr][nc]!==1)break;cnt++;}
-    if(cnt>=6){b[r][c]=0;return'long';}
-  }
-  let fours=0,threes=0;
-  for(const[dr,dc]of DIRS){
-    const t=dirType(b,r,c,dr,dc);
-    if(t==='four')fours++;else if(t==='three')threes++;
-  }
-  b[r][c]=0;
-  if(fours>=2) return'doubleFour';
-  if(threes>=2) return'doubleThree';
-  return null;
-}
-
-function dirType(b,r,c,dr,dc){
-  const L=[];
-  for(let i=-5;i<=5;i++){
-    const nr=r+dr*i,nc=c+dc*i;
-    L.push(nr<0||nr>=N||nc<0||nc>=N?-1:b[nr][nc]);
-  }
-  let hasFour=false,hasThree=false;
-  for(let ws=1;ws<=5;ws++){
-    const we=ws+4;
-    let mc=0,bl=false;
-    for(let i=ws;i<=we;i++){if(L[i]===1)mc++;else if(L[i]!==0){bl=true;break;}}
-    if(bl)continue;
-    if(mc===5)continue;
-    if(mc===4)hasFour=true;
-    if(mc===3){const lo=ws>0?L[ws-1]:-1,ro=we<10?L[we+1]:-1;if(lo===0&&ro===0)hasThree=true;}
-  }
-  if(!hasThree){
-    for(let ws=0;ws<=5;ws++){
-      const we=ws+5;
-      if(we>10||ws>5||we<5)continue;
-      let mc=0,bl=false;
-      for(let i=ws;i<=we;i++){if(L[i]===1)mc++;else if(L[i]!==0){bl=true;break;}}
-      if(bl||mc!==3)continue;
-      const lo=ws>0?L[ws-1]:-1,ro=we<10?L[we+1]:-1;
-      if(lo===0&&ro===0)hasThree=true;
+    function updateDocumentLanguage() {
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      document.title = currentLang === 'zh' ? '五子棋' : 'Gomoku';
     }
-  }
-  return hasFour?'four':hasThree?'three':'other';
-}
+    updateDocumentLanguage();
+    const HUMAN = 0;
+    const COMPUTER = 1;
 
-function fbMsg(fb){
-  return{long:'禁手：长连',doubleFour:'禁手：四四',doubleThree:'禁手：三三'}[fb]||'禁手';
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  RAPFI-INSPIRED ENGINE
-//  Incremental Eval · Zobrist/TT · VCF Solver · PVS Negamax
-// ══════════════════════════════════════════════════════════════════
-
-// ─── 1. Window precomputation ─────────────────────────────────────
-const WDRS=[[0,1],[1,0],[1,1],[1,-1]];
-const ALLW=[], CW=Array.from({length:N*N},()=>[]);
-(function(){
-  for(let d=0;d<4;d++){
-    const[dr,dc]=WDRS[d];
-    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
-      const er=r+dr*4,ec=c+dc*4;
-      if(er<0||er>=N||ec<0||ec>=N) continue;
-      const wi=ALLW.length;
-      const lr=r-dr,lc=c-dc,rr=er+dr,rc=ec+dc;
-      const ll=lr>=0&&lr<N&&lc>=0&&lc<N,rl=rr>=0&&rr<N&&rc>=0&&rc<N;
-      ALLW.push([r,c,dr,dc,ll?lr:-1,ll?lc:-1,rl?rr:-1,rl?rc:-1]);
-      for(let i=0;i<5;i++) CW[(r+dr*i)*N+(c+dc*i)].push(wi);
-    }
-  }
-})();
-const NW=ALLW.length;
-
-// ─── 2. Score/type lookup [count][openEnds] ───────────────────────
-// 冲四(c4)=5100 ≈ 活三(o3)=5000: 冲四只微高1%, 避免AI不停走冲四耗子; 活四=500000 >> 冲四
-// 五连(win)=10000000 >> 活四=500000: win is unconditionally above all threats
-const WSC=[[0,0,0],[0,5,5],[0,15,500],[0,500,5000],[0,5100,500000],[0,10000000,10000000]]; // self-play tuned: o2 150→500, b3 1200→500
-// Types: 0=none,1=c2,2=o2,3=c3,4=o3(活三),5=c4(冲四),6=o4(活四),7=five
-const WTP=[[0,0,0],[0,0,0],[0,1,2],[0,3,4],[0,5,6],[0,7,7]];
-
-// ─── 3. Incremental eval state ────────────────────────────────────
-const b1d=new Uint8Array(N*N);
-const ws1=new Int32Array(NW),ws2=new Int32Array(NW);
-const wt1=new Uint8Array(NW),wt2=new Uint8Array(NW);
-let ts1=0,ts2=0;
-const tc1=new Int32Array(8),tc2=new Int32Array(8);
-const UNDO=[];
-
-function cwScore(wi){
-  const[r0,c0,dr,dc,lr,lc,rr,rc]=ALLW[wi];
-  let m1=0,m2=0,minP=5,maxP=-1;
-  for(let i=0;i<5;i++){
-    const v=b1d[(r0+dr*i)*N+(c0+dc*i)];
-    if(v===1){m1++;if(i<minP)minP=i;if(i>maxP)maxP=i;}
-    else if(v===2){m2++;if(i<minP)minP=i;if(i>maxP)maxP=i;}
-  }
-  if(m1&&m2) return[0,0,0,0];
-  const mc=m1||m2;
-  if(!mc) return[0,0,0,0];
-  const span=maxP-minP; // 石子跨度：连着=mc-1，越大越散
-  const lo=lr>=0&&b1d[lr*N+lc]===0, ro=rr>=0&&b1d[rr*N+rc]===0;
-
-  // ── 4-stone: distinguish open-four vs closed-four ─────────────────
-  // span=3 → contiguous [WWWW] with one end-gap: open/closed depends on ends
-  // span<3 → impossible for mc=4; span>3 → interior gap → 冲四
-  if(mc===4){
-    let sc,tp;
-    if(span===3){
-      // Contiguous four, one gap is at an end of the window
-      // Effective open ends = (gap at left end OR lo) + (gap at right end OR ro)
-      const leftOpen = (minP>0) ? lo : true; // if stones start at pos>0, pos0 is the gap (open)
-      const rightOpen= (maxP<4) ? ro : true; // if stones end at pos<4, pos4 is the gap (open)
-      const oe2=(leftOpen?1:0)+(rightOpen?1:0);
-      sc=WSC[4][oe2]; tp=WTP[4][oe2];
-    } else {
-      // span<3 impossible; span>3 → interior gap(s) → always 冲四
-      sc=5100; tp=5;
-    }
-    return m1?[sc,0,tp,0]:[0,sc,0,tp];
-  }
-
-  // ── 3-stone: differentiate by span ────────────────────────────────
-  // span=2: ***   连活三/连眠三 → 100% (next move = open-four directly)
-  // span=3: **-*  跳活三/跳眠三 →  65% (need to fill gap first)
-  // span=4: **--* 散活三/散眠三 →  35% (further from threat)
-  if(mc===3){
-    const oe=(lo?1:0)+(ro?1:0);
-    const base=WSC[3][oe];
-    let sc;
-    if(span===2)      sc=base;
-    else if(span===3) sc=base*0.65|0;
-    else              sc=base*0.35|0;
-    return m1?[sc,0,WTP[3][oe],0]:[0,sc,0,WTP[3][oe]];
-  }
-
-  // ── 2-stone: differentiate by span ────────────────────────────────
-  // span=1: WW   连活二/连眠二 → 100%
-  // span=2: W_W  跳活二       →  60%
-  // span=3: W__W 散活二       →  30%
-  if(mc===2){
-    const oe=(lo?1:0)+(ro?1:0);
-    const base=WSC[2][oe];
-    let sc;
-    if(span===1)      sc=base;
-    else if(span===2) sc=base*0.60|0;
-    else              sc=base*0.30|0;
-    return m1?[sc,0,WTP[2][oe],0]:[0,sc,0,WTP[2][oe]];
-  }
-
-  // ── mc=1 ───────────────────────────────────────────────────────────
-  const oe=(lo?1:0)+(ro?1:0);
-  if(m1) return[WSC[1][oe],0,WTP[1][oe],0];
-  if(m2) return[0,WSC[1][oe],0,WTP[1][oe]];
-  return[0,0,0,0];
-}
-
-// Copy board[][] → b1d, rebuild all windows
-function syncBoard(){
-  for(let r=0;r<N;r++) for(let c=0;c<N;c++) b1d[r*N+c]=board[r][c];
-  ts1=0;ts2=0;tc1.fill(0);tc2.fill(0);UNDO.length=0;
-  for(let w=0;w<NW;w++){
-    const[a,b,c,d]=cwScore(w);
-    ws1[w]=a;ws2[w]=b;wt1[w]=c;wt2[w]=d;
-    ts1+=a;ts2+=b;tc1[c]++;tc2[d]++;
-  }
-}
-
-// Place stone: update b1d, board[][], and window scores
-function aput(r,c,col){
-  b1d[r*N+c]=col;board[r][c]=col;
-  const mark=UNDO.length;
-  for(const w of CW[r*N+c]){
-    UNDO.push(w,ws1[w],ws2[w],wt1[w],wt2[w]);
-    ts1-=ws1[w];ts2-=ws2[w];tc1[wt1[w]]--;tc2[wt2[w]]--;
-    const[a,b,c_,d]=cwScore(w);
-    ws1[w]=a;ws2[w]=b;wt1[w]=c_;wt2[w]=d;
-    ts1+=a;ts2+=b;tc1[c_]++;tc2[d]++;
-  }
-  return mark;
-}
-
-// Remove stone: restore b1d, board[][], and window scores
-function apop(r,c,mark){
-  b1d[r*N+c]=0;board[r][c]=0;
-  let i=UNDO.length;
-  while(i>mark){
-    const d2=UNDO[--i],c2=UNDO[--i],b2=UNDO[--i],a2=UNDO[--i],w=UNDO[--i];
-    ts1-=ws1[w];ts2-=ws2[w];tc1[wt1[w]]--;tc2[wt2[w]]--;
-    ws1[w]=a2;ws2[w]=b2;wt1[w]=c2;wt2[w]=d2;
-    ts1+=a2;ts2+=b2;tc1[c2]++;tc2[d2]++;
-  }
-  UNDO.length=mark;
-}
-
-// Fork-aware score pair
-function getS(){
-  let s1=ts1,s2=ts2;
-  if(tc1[6]>=2)s1+=5000000;   if(tc2[6]>=2)s2+=5000000;   // 双活四→必赢
-  if(tc1[5]+tc1[6]>=2)s1+=1000000; if(tc2[5]+tc2[6]>=2)s2+=1000000; // 双四→必赢
-  if((tc1[5]+tc1[6])>=1&&tc1[4]>=1)s1+=800000;  // 四+活三→下步双四
-  if((tc2[5]+tc2[6])>=1&&tc2[4]>=1)s2+=800000;
-  if(tc1[4]>=2&&!forbRule)s1+=300000; if(tc2[4]>=2)s2+=300000;  // 双活三
-  if(tc1[4]>=3&&!forbRule)s1+=100000; if(tc2[4]>=3)s2+=100000; // 三活三
-  return[s1,s2];
-}
-
-// Score from stm's perspective (negamax convention)
-function evalStm(stm){
-  const[s1,s2]=getS();
-  return stm===1?s1-s2*1.05:s2-s1*1.05;
-}
-
-// ─── 4. Zobrist hashing + Transposition Table ─────────────────────
-const ZK=new Uint32Array(N*N*2);
-(function(){for(let i=0;i<ZK.length;i++) ZK[i]=Math.random()*0x100000000>>>0;})();
-let zh=0;
-function zhp(r,c,col){zh^=ZK[(r*N+c)*2+(col-1)];}
-function zhSync(){zh=0;for(let p=0;p<N*N;p++) if(b1d[p]) zhp(p/N|0,p%N,b1d[p]);}
-
-const TSZ=1<<21,TSM=TSZ-1;
-const TK=new Int32Array(TSZ),TV=new Int32Array(TSZ);
-const TD=new Int8Array(TSZ),TF=new Uint8Array(TSZ),TM=new Uint16Array(TSZ);
-const TE=1,TL=2,TU=3;
-function ttGet(d,a,b){
-  const i=zh&TSM;
-  if(!TF[i]||TK[i]!==zh||TD[i]<d) return null;
-  const s=TV[i],f=TF[i];
-  if(f===TE) return s; if(f===TL&&s>=b) return s; if(f===TU&&s<=a) return s;
-  return null;
-}
-function ttMv(){const i=zh&TSM;return(TF[i]&&TK[i]===zh)?TM[i]:-1;}
-function ttSet(d,s,f,mv){const i=zh&TSM;TK[i]=zh;TV[i]=s;TD[i]=d;TF[i]=f;TM[i]=mv;}
-function ttClr(){TF.fill(0);}
-
-// ─── 5. Killer moves + History heuristic ─────────────────────────
-const MAXPLY=40;
-const KM=Array.from({length:MAXPLY},()=>[-1,-1]);
-const HT=new Int32Array(N*N);
-
-
-// ─── 6. Candidate generation ──────────────────────────────────────
-function genCands(range){
-  const seen=new Uint8Array(N*N),res=[];
-  let any=false;
-  for(let p=0;p<N*N;p++){
-    if(!b1d[p]) continue; any=true;
-    const r=p/N|0,c=p%N;
-    for(let dr=-range;dr<=range;dr++) for(let dc=-range;dc<=range;dc++){
-      const nr=r+dr,nc=c+dc,np=nr*N+nc;
-      if(nr>=0&&nr<N&&nc>=0&&nc<N&&!b1d[np]&&!seen[np]){seen[np]=1;res.push(np);}
-    }
-  }
-  return any?res:[7*N+7];
-}
-
-// pBonus: center gravity + pattern-based influence radiation
-//
-// Directly inspired by the original Java engine (Analyzer.class, 2005):
-//   FOUR(9000) THREE-open(5000) THREE-blk(801) TWO-open(800) ONE(150)
-// Ratios preserved here (÷100 scale):
-//   ts>=4→90  ts=3 open→50 blk→8  ts=2 open→8 blk→0.5  ts=1→1.5/0.3
-//
-// Key improvement over pure distance-decay: THREE extension is 6x TWO,
-// matching old engine's ratio, so AI strongly prefers developing THREE
-// patterns over TWO patterns in move ordering.
-//
-// Scan both arms per direction: allied stones accumulate (gaps transparent),
-// opponent/wall stops arm. reachMult penalises cells near walls/blockers.
-
-function pBonus(pos){
-  const r=pos/N|0,c=pos%N,m=(N-1)/2;
-  let bonus=Math.max(0,10-Math.hypot(r-m,c-m))*2; // center gravity
-
-  for(let d=0;d<4;d++){
-    const[dr,dc]=WDRS[d];
-    let fS=0,bS=0,fR=0,bR=0;
-
-    for(let s=1;s<=4;s++){
-      const nr=r+dr*s,nc=c+dc*s;
-      if(nr<0||nr>=N||nc<0||nc>=N) break;
-      const v=b1d[nr*N+nc];
-      if(v===2) break;
-      fR++;
-      if(v===1) fS++;
-    }
-    for(let s=1;s<=4;s++){
-      const nr=r-dr*s,nc=c-dc*s;
-      if(nr<0||nr>=N||nc<0||nc>=N) break;
-      const v=b1d[nr*N+nc];
-      if(v===2) break;
-      bR++;
-      if(v===1) bS++;
+    class Stone {
+      constructor() { this.color = UNSET; this.weight = 0; }
+      GetColor() { return this.color; }
+      GetWeight() { return this.weight; }
+      SetColor(colorInput) { this.color = colorInput; }
+      SetWeight(weightInput) { this.weight += weightInput; }
+      ReSetWeight(weightInput) { this.weight = weightInput; }
     }
 
-    const ts=fS+bS;
-    if(!ts) continue;
+    class BrowserGame {
+      constructor() {
+        this.canvas = document.getElementById('board');
+        this.ctx = this.canvas.getContext('2d');
+        this.statusEl = document.getElementById('status');
+        this.moveCountEl = document.getElementById('moveCount');
+        this.lastMoveEl = document.getElementById('lastMove');
+        this.topWeightsEl = document.getElementById('topWeights');
+        this.blackMode = document.getElementById('blackMode');
+        this.whiteMode = document.getElementById('whiteMode');
+        this.forbiddenRules = document.getElementById('forbiddenRules');
+        this.blackSummary = document.getElementById('blackSummary');
+        this.whiteSummary = document.getElementById('whiteSummary');
+        this.forbiddenSummary = document.getElementById('forbiddenSummary');
+        this.languageSelect = document.getElementById('languageSelect');
+        this.startDialog = document.getElementById('startDialog');
+        this.messageDialog = document.getElementById('messageDialog');
+        this.messageDialogTitle = document.getElementById('messageDialogTitle');
+        this.messageDialogBody = document.getElementById('messageDialogBody');
+        this.messageOk = document.getElementById('messageOk');
+        this.dialogBlackMode = document.getElementById('dialogBlackMode');
+        this.dialogWhiteMode = document.getElementById('dialogWhiteMode');
+        this.dialogForbiddenRules = document.getElementById('dialogForbiddenRules');
+        this.margin = 48;
+        this.cell = (this.canvas.width - this.margin * 2) / (BOARD_SIZE - 1);
+        this.showWeights = false;
+        this.showSteps = false;
+        this.aiThinking = false;
+        this.gameStarted = false;
+        this.gameResult = null;
+        this.init();
+        this.bind();
+        this.applyLanguage();
+        this.updateOptionSummary();
+        this.setStatus(tr('statusNotStarted'));
+        this.render();
+      }
 
-    const bothOpen=fR>0&&bR>0;
-    const reachMult=Math.max(0.25,(fR+bR)/8);
+      init() {
+        this.gameStarted = false;
+        this.stones = Array.from({ length: BOARD_SIZE }, () =>
+          Array.from({ length: BOARD_SIZE }, () => new Stone())
+        );
+        this.track = [];
+        this.endofGame = false;
+        this.gameResult = null;
+        this.upBd = 6;
+        this.bottomBd = 8;
+        this.leftBd = 6;
+        this.rightBd = 8;
+        this.showWeights = false;
+        this.showSteps = false;
+        this.aiThinking = false;
+        this.hoverIntersection = null;
+        this.hoverPointer = null;
+      }
 
-    // Pattern weights (old code ratios: FOUR:THREE:TWO:ONE = 9000:5000:800:150)
-    let w;
-    if(ts>=4)       w=90;
-    else if(ts===3) w=bothOpen?50:8;
-    else if(ts===2) w=bothOpen?8:0.5;
-    else            w=bothOpen?1.5:0.3;
+      bind() {
+        document.getElementById('start').addEventListener('click', () => this.openStartDialog());
+        if (this.languageSelect) this.languageSelect.addEventListener('change', () => this.setLanguage(this.languageSelect.value));
+        document.getElementById('reset').addEventListener('click', () => { this.init(); this.updateWeightButtonText(); this.updateStepButtonText(); this.setStatus(tr('statusNotStarted')); this.render(); });
+        document.getElementById('undo').addEventListener('click', () => this.undo());
+        document.getElementById('hint').addEventListener('click', () => this.toggleWeights());
+        document.getElementById('clearHint').addEventListener('click', () => this.toggleWeights(false));
+        document.getElementById('showSteps').addEventListener('click', () => this.toggleSteps());
+        document.getElementById('saveGame').addEventListener('click', () => this.saveGameAsSgf());
+        document.getElementById('startCancel').addEventListener('click', () => this.closeStartDialog());
+        document.getElementById('startConfirm').addEventListener('click', () => this.confirmStartDialog());
+        this.startDialog.addEventListener('click', (event) => { if (event.target === this.startDialog) this.closeStartDialog(); });
+        if (this.messageOk) this.messageOk.addEventListener('click', () => this.closeMessageDialog());
+        if (this.messageDialog) this.messageDialog.addEventListener('click', (event) => { if (event.target === this.messageDialog) this.closeMessageDialog(); });
+        this.canvas.addEventListener('click', (event) => this.handleClick(event));
+        this.canvas.addEventListener('mousemove', (event) => this.handleMouseMove(event));
+        this.canvas.addEventListener('mouseleave', () => this.clearHoverPreview());
+        window.addEventListener('resize', () => this.render());
+      }
 
-    bonus+=w*reachMult;
-  }
-  return bonus;
-}
+      openStartDialog() {
+        this.dialogBlackMode.value = this.blackMode.value;
+        this.dialogWhiteMode.value = this.whiteMode.value;
+        this.dialogForbiddenRules.value = this.forbiddenRules.value;
+        this.startDialog.classList.add('open');
+      }
 
+      closeStartDialog() {
+        this.startDialog.classList.remove('open');
+      }
 
-// ─── 7. VCF Solver (Victory by Continuous Fours) ─────────────────
-let vcfDL=Infinity;
+      showMessageDialog(title, body) {
+        if (!this.messageDialog) { window.alert((title ? title + ': ' : '') + body); return; }
+        this.messageDialogTitle.textContent = title || '';
+        this.messageDialogBody.textContent = body || '';
+        if (this.messageOk) this.messageOk.textContent = tr('ok');
+        this.messageDialog.classList.add('open');
+      }
 
-function vcf(ai,depth){
-  if(depth<=0||Date.now()>vcfDL) return -1;
-  const hu=ai===1?2:1;
+      closeMessageDialog() {
+        if (this.messageDialog) this.messageDialog.classList.remove('open');
+      }
 
-  // Check immediate wins
-  for(let p=0;p<N*N;p++){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    if(forbRule&&ai===1&&forbidden(board,r,c)) continue;
-    const mk=aput(r,c,ai);
-    const won=checkWin(board,r,c,ai);
-    apop(r,c,mk);
-    if(won) return p;
-  }
+      confirmStartDialog() {
+        this.blackMode.value = this.dialogBlackMode.value;
+        this.whiteMode.value = this.dialogWhiteMode.value;
+        this.forbiddenRules.value = this.dialogForbiddenRules.value;
+        this.updateOptionSummary();
+        this.closeStartDialog();
+        this.start();
+      }
 
-  // Find four-creating moves
-  const fours=[];
-  for(let p=0;p<N*N;p++){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    if(forbRule&&ai===1&&forbidden(board,r,c)) continue;
-    const mk=aput(r,c,ai); zhp(r,c,ai);
-    const hasO4=ai===1?tc1[6]>0:tc2[6]>0;
-    const has4=ai===1?(tc1[5]+tc1[6])>0:(tc2[5]+tc2[6])>0;
-    const[s1,s2]=getS(); const aiS=ai===1?s1:s2;
-    apop(r,c,mk); zhp(r,c,ai);
-    if(hasO4) return p; // open-four → instant win, opponent can't block in time
-    if(has4&&aiS>=5000) fours.push([p,aiS]);
-  }
-  if(!fours.length) return -1;
-  fours.sort((a,b)=>b[1]-a[1]);
+      setLanguage(lang) {
+        currentLang = lang === 'zh' ? 'zh' : 'en';
+        if (window.localStorage) localStorage.setItem('gomoku.lang', currentLang);
+        updateDocumentLanguage();
+        this.applyLanguage();
+        this.updateOptionSummary();
+        this.setStatus(this.statusText());
+        this.render();
+      }
 
-  for(const[pos] of fours){
-    const r=pos/N|0,c=pos%N;
-    const mk=aput(r,c,ai); zhp(r,c,ai);
+      applyLanguage() {
+        if (this.languageSelect) this.languageSelect.value = currentLang;
+        document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+        document.querySelectorAll('[data-i18n-aria-label]').forEach(el => { el.setAttribute('aria-label', tr(el.dataset.i18nAriaLabel)); });
+        this.updateWeightButtonText();
+        this.updateStepButtonText();
+        if (this.messageOk) this.messageOk.textContent = tr('ok');
+      }
 
-    // Find opponent responses that neutralise our four
-    const blocks=[];
-    for(let bp=0;bp<N*N;bp++){
-      if(b1d[bp]) continue;
-      const br=bp/N|0,bc=bp%N;
-      const mk2=aput(br,bc,hu);
-      const[ns1,ns2]=getS(); const newAiS=ai===1?ns1:ns2;
-      apop(br,bc,mk2);
-      if(newAiS<5000) blocks.push(bp);
+      updateOptionSummary() {
+        if (this.blackSummary) this.blackSummary.textContent = this.blackMode.value === 'computer' ? tr('computer') : tr('human');
+        if (this.whiteSummary) this.whiteSummary.textContent = this.whiteMode.value === 'computer' ? tr('computer') : tr('human');
+        if (this.forbiddenSummary) this.forbiddenSummary.textContent = this.isForbiddenRulesOn() ? tr('forbiddenOn') : tr('forbiddenOff');
+      }
+
+      start() {
+        this.updateOptionSummary();
+        this.init();
+        this.updateWeightButtonText();
+        this.updateStepButtonText();
+        this.gameStarted = true;
+        if (this.getPlayer(BLACK) === COMPUTER) {
+          this.Move(7, 7);
+        }
+        this.ReSetEndofGame();
+        this.setStatus(this.statusText());
+        if (this.showWeights) this.refreshWeights();
+        this.render();
+        this.scheduleComputerIfNeeded();
+      }
+
+      getPlayer(color) {
+        return color === BLACK
+          ? (this.blackMode.value === 'computer' ? COMPUTER : HUMAN)
+          : (this.whiteMode.value === 'computer' ? COMPUTER : HUMAN);
+      }
+
+      currentColor() { return this.GetTrackSize() % 2; }
+      colorName(color) { return color === BLACK ? tr('black') : tr('white'); }
+      coordName(row, col) { return String.fromCharCode(65 + col) + (row + 1); }
+
+      statusText() {
+        if (!this.gameStarted) return tr('statusNotStarted');
+        if (this.endofGame) return tr('gameOver');
+        const color = this.currentColor();
+        const mode = this.getPlayer(color) === COMPUTER ? tr('computer') : tr('human');
+        return tr('toMove', { color: this.colorName(color), mode });
+      }
+
+      setStatus(text) { this.statusEl.textContent = text; }
+
+      isHumanTurnInteractive() {
+        return this.gameStarted && !this.endofGame && !this.aiThinking && this.getPlayer(this.currentColor()) === HUMAN;
+      }
+
+      getPointerInfo(event) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+        const boardMin = this.margin - this.cell * 0.5;
+        const boardMax = this.margin + (BOARD_SIZE - 1) * this.cell + this.cell * 0.5;
+        if (x < boardMin || y < boardMin || x > boardMax || y > boardMax) return null;
+        const col = Math.round((x - this.margin) / this.cell);
+        const row = Math.round((y - this.margin) / this.cell);
+        const onIntersection = row >= 0 && col >= 0 && row < BOARD_SIZE && col < BOARD_SIZE;
+        const px = onIntersection ? this.margin + col * this.cell : x;
+        const py = onIntersection ? this.margin + row * this.cell : y;
+        const maxDistance = this.cell * 0.45;
+        const target = onIntersection && Math.hypot(x - px, y - py) <= maxDistance ? { row, col } : null;
+        return { x, y, target };
+      }
+
+      getPointerIntersection(event) {
+        const info = this.getPointerInfo(event);
+        return info ? info.target : null;
+      }
+
+      handleMouseMove(event) {
+        if (!this.isHumanTurnInteractive()) { this.clearHoverPreview(); return; }
+        const info = this.getPointerInfo(event);
+        if (!info) { this.clearHoverPreview(); return; }
+        const hit = info.target;
+        const valid = hit && this.GetStoneColor(hit.row, hit.col) < 0 && !this.isForbiddenMove(hit.row, hit.col, this.currentColor());
+        this.hoverPointer = { x: info.x, y: info.y };
+        this.hoverIntersection = valid ? hit : null;
+        this.render();
+      }
+
+      clearHoverPreview() {
+        if (!this.hoverIntersection && !this.hoverPointer) return;
+        this.hoverIntersection = null;
+        this.hoverPointer = null;
+        this.render();
+      }
+
+      handleClick(event) {
+        if (!this.isHumanTurnInteractive()) return;
+        const hit = this.getPointerIntersection(event);
+        if (!hit) return;
+        const { row, col } = hit;
+        if (this.GetStoneColor(row, col) >= 0) return;
+        if (this.isForbiddenMove(row, col, this.currentColor())) {
+          const reason = this.forbiddenReason(row, col, this.currentColor());
+          this.showMessageDialog(tr('forbiddenTitle'), tr('forbiddenMove') + (reason ? ': ' + reason : ''));
+          this.clearHoverPreview();
+          return;
+        }
+        this.hoverIntersection = null;
+        this.hoverPointer = null;
+        this.humanMove(row, col);
+      }
+
+      humanMove(row, col) {
+        this.Move(row, col);
+        this.afterMove();
+      }
+
+      afterMove() {
+        const winner = this.Five();
+        if (winner >= 0) {
+          this.SetEndofGame();
+          this.gameResult = { type: 'win', winner };
+          this.setStatus(tr('wins', { color: this.colorName(winner) }));
+          this.render();
+          return;
+        }
+        if (this.track.length >= BOARD_SIZE * BOARD_SIZE) {
+          this.SetEndofGame();
+          this.gameResult = { type: 'draw' };
+          this.setStatus(tr('draw'));
+          this.render();
+          return;
+        }
+        this.setStatus(this.statusText());
+        if (this.showWeights) this.refreshWeights();
+        this.render();
+        this.scheduleComputerIfNeeded();
+      }
+
+      scheduleComputerIfNeeded() {
+        if (!this.gameStarted || this.endofGame) return;
+        if (this.getPlayer(this.currentColor()) !== COMPUTER) return;
+        this.aiThinking = true;
+        this.setStatus(tr('thinking', { color: this.colorName(this.currentColor()) }));
+        window.setTimeout(() => {
+          if (!this.endofGame && this.getPlayer(this.currentColor()) === COMPUTER) {
+            this.EasyAI();
+            this.aiThinking = false;
+            this.afterMove();
+          } else {
+            this.aiThinking = false;
+          }
+        }, 180);
+      }
+
+      EasyAI() {
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            this.ReSetStoneWeight(row, col, 0);
+          }
+        }
+        runOriginalAnalyzer(this);
+        if (!this.AIMove()) this.RandomMove();
+      }
+
+      AIMove() {
+        let highestWeight = 0;
+        const highests = [];
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            if (this.GetStoneWeight(row, col) > highestWeight && this.GetStoneColor(row, col) < 0 && !this.isForbiddenMove(row, col, this.currentColor())) {
+              highestWeight = this.GetStoneWeight(row, col);
+            }
+          }
+        }
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            if (this.GetStoneWeight(row, col) >= highestWeight && this.GetStoneColor(row, col) < 0 && !this.isForbiddenMove(row, col, this.currentColor())) {
+              highestWeight = this.GetStoneWeight(row, col);
+              highests.push([row, col]);
+            }
+          }
+        }
+        if (highestWeight > 0 && highests.length) {
+          const [row, col] = highests[Math.floor(Math.random() * highests.length)];
+          this.Move(row, col);
+          return true;
+        }
+        return false;
+      }
+
+      RandomMove() {
+        let empties = [];
+        for (let row = this.upBd; row <= this.bottomBd; ++row) {
+          for (let col = this.leftBd; col <= this.rightBd; ++col) {
+            if (this.GetStoneColor(row, col) < 0 && !this.isForbiddenMove(row, col, this.currentColor())) empties.push([row, col]);
+          }
+        }
+        if (!empties.length) {
+          for (let row = 0; row < BOARD_SIZE; ++row) {
+            for (let col = 0; col < BOARD_SIZE; ++col) {
+              if (this.GetStoneColor(row, col) < 0 && !this.isForbiddenMove(row, col, this.currentColor())) empties.push([row, col]);
+            }
+          }
+        }
+        if (empties.length) {
+          const [row, col] = empties[Math.floor(Math.random() * empties.length)];
+          this.Move(row, col);
+        }
+      }
+
+      Move(row, col) {
+        this.SetStoneColor(row, col, this.GetTrackSize() % 2);
+        this.AddToTrack(row, col);
+        this.UpdateBound(row, col);
+      }
+
+      undo() {
+        if (!this.gameStarted || this.aiThinking) return;
+        const hasComputer = this.getPlayer(BLACK) === COMPUTER || this.getPlayer(WHITE) === COMPUTER;
+        const count = hasComputer ? 2 : 1;
+        for (let i = 0; i < count && this.track.length > 0; ++i) {
+          const last = this.track.pop();
+          const row = Math.floor(last / BOARD_SIZE);
+          const col = last % BOARD_SIZE;
+          this.SetStoneColor(row, col, UNSET);
+        }
+        this.endofGame = false;
+        this.gameResult = null;
+        this.recomputeBounds();
+        this.setStatus(this.statusText());
+        if (this.showWeights) this.refreshWeights();
+        this.render();
+      }
+
+      updateWeightButtonText() {
+        const btn = document.getElementById('hint');
+        if (btn) btn.textContent = this.showWeights ? tr('hideWeights') : tr('showWeights');
+      }
+
+      toggleWeights(show = null) {
+        this.showWeights = show === null ? !this.showWeights : !!show;
+        this.updateWeightButtonText();
+        if (this.showWeights && !this.endofGame) this.refreshWeights();
+        else this.topWeightsEl.innerHTML = '';
+        this.render();
+      }
+
+      updateStepButtonText() {
+        const btn = document.getElementById('showSteps');
+        if (btn) btn.textContent = this.showSteps ? tr('hideSteps') : tr('showSteps');
+      }
+
+      toggleSteps(show = null) {
+        this.showSteps = show === null ? !this.showSteps : !!show;
+        this.updateStepButtonText();
+        this.render();
+      }
+
+      sgfCoord(row, col) {
+        return String.fromCharCode(97 + col) + String.fromCharCode(97 + row);
+      }
+
+      escapeSgfText(text) {
+        return String(text).replace(/\\/g, '\\\\').replace(/\]/g, '\\]');
+      }
+
+      buildSgf() {
+        const blackName = this.getPlayer(BLACK) === COMPUTER ? 'Computer' : 'Human';
+        const whiteName = this.getPlayer(WHITE) === COMPUTER ? 'Computer' : 'Human';
+        let result = '';
+        if (this.gameResult && this.gameResult.type === 'draw') result = '0';
+        else if (this.gameResult && this.gameResult.type === 'win') result = this.gameResult.winner === BLACK ? 'B+R' : 'W+R';
+        const props = [
+          'GM[4]', 'FF[4]', 'CA[UTF-8]', 'AP[Gomoku]', 'SZ[15]',
+          'PB[' + this.escapeSgfText(blackName) + ']',
+          'PW[' + this.escapeSgfText(whiteName) + ']',
+          'RU[' + this.escapeSgfText(this.isForbiddenRulesOn() ? 'Renju-style forbidden moves' : 'Free-style Gomoku') + ']'
+        ];
+        if (result) props.push('RE[' + result + ']');
+        let sgf = '(;' + props.join('');
+        for (let i = 0; i < this.track.length; ++i) {
+          const row = Math.floor(this.track[i] / BOARD_SIZE);
+          const col = this.track[i] % BOARD_SIZE;
+          sgf += ';' + (i % 2 === 0 ? 'B' : 'W') + '[' + this.sgfCoord(row, col) + ']';
+        }
+        sgf += ')\n';
+        return sgf;
+      }
+
+      saveGameAsSgf() {
+        if (!this.track.length) {
+          window.alert(tr('noMovesToSave'));
+          return;
+        }
+        const sgf = this.buildSgf();
+        const blob = new Blob([sgf], { type: 'application/x-go-sgf;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        a.href = url;
+        a.download = 'gomoku-' + stamp + '.sgf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      refreshWeights() {
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) this.ReSetStoneWeight(row, col, 0);
+        }
+        if (!this.endofGame) runOriginalAnalyzer(this);
+      }
+
+      recomputeBounds() {
+        this.upBd = 6; this.bottomBd = 8; this.leftBd = 6; this.rightBd = 8;
+        for (const move of this.track) this.UpdateBound(Math.floor(move / BOARD_SIZE), move % BOARD_SIZE);
+      }
+
+      UpdateBound(row, col) {
+        if (row < this.upBd) this.upBd = row;
+        else if (row > this.bottomBd) this.bottomBd = row;
+        if (col < this.leftBd) this.leftBd = col;
+        else if (col > this.rightBd) this.rightBd = col;
+      }
+
+      isForbiddenRulesOn() {
+        return !!(this.forbiddenRules && this.forbiddenRules.value === 'on');
+      }
+
+      lineCountFrom(row, col, dr, dc, color) {
+        let count = 0;
+        let rr = row + dr, cc = col + dc;
+        while (rr >= 0 && cc >= 0 && rr < BOARD_SIZE && cc < BOARD_SIZE && this.GetStoneColor(rr, cc) === color) {
+          count++; rr += dr; cc += dc;
+        }
+        return count;
+      }
+
+      overlineAfterPlaced(row, col, color) {
+        const dirs = [[0,1], [1,0], [1,1], [1,-1]];
+        for (const [dr, dc] of dirs) {
+          const len = 1 + this.lineCountFrom(row, col, dr, dc, color) + this.lineCountFrom(row, col, -dr, -dc, color);
+          if (len > 5) return true;
+        }
+        return false;
+      }
+
+      lineKeyFor(row, col, dirIndex) {
+        if (dirIndex === 0) return 'V:' + col;
+        if (dirIndex === 1) return 'H:' + row;
+        if (dirIndex === 2) return 'D1:' + (row - col);
+        return 'D2:' + (row + col);
+      }
+
+      cellCharForColor(row, col, color) {
+        if (row < 0 || col < 0 || row >= BOARD_SIZE || col >= BOARD_SIZE) return 'O';
+        const c = this.GetStoneColor(row, col);
+        return c === color ? 'X' : (c === UNSET ? '_' : 'O');
+      }
+
+      lineCellsThrough(row, col, dr, dc) {
+        const cells = [];
+        for (let k = -4; k <= 4; ++k) cells.push({ row: row + dr * k, col: col + dc * k, center: k === 0 });
+        return cells;
+      }
+
+      liveThreeLineKeysAtPlaced(row, col, color) {
+        const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+        const keys = [];
+        for (let dirIndex = 0; dirIndex < dirs.length; ++dirIndex) {
+          const [dr, dc] = dirs[dirIndex];
+          const openFourExtensions = new Set();
+          for (let k = -4; k <= 4; ++k) {
+            const rr = row + dr * k, cc = col + dc * k;
+            if (rr < 0 || cc < 0 || rr >= BOARD_SIZE || cc >= BOARD_SIZE) continue;
+            if (rr === row && cc === col) continue;
+            if (this.GetStoneColor(rr, cc) !== UNSET) continue;
+            this.SetStoneColor(rr, cc, color);
+            const cells = this.lineCellsThrough(row, col, dr, dc);
+            const chars = cells.map(c => this.cellCharForColor(c.row, c.col, color));
+            let createsOpenFour = false;
+            for (let i = 0; i <= chars.length - 6 && !createsOpenFour; ++i) {
+              const w = chars.slice(i, i + 6).join('');
+              const winCells = cells.slice(i, i + 6);
+              if (w === '_XXXX_' && winCells.some(c => c.row === row && c.col === col) && winCells.some(c => c.row === rr && c.col === cc)) createsOpenFour = true;
+            }
+            this.SetStoneColor(rr, cc, UNSET);
+            if (createsOpenFour) openFourExtensions.add(rr + ',' + cc);
+          }
+          if (openFourExtensions.size >= 1) keys.push(this.lineKeyFor(row, col, dirIndex));
+        }
+        return [...new Set(keys)];
+      }
+
+      fourThreatLineKeysAtPlaced(row, col, color) {
+        const dirs = [[1,0], [0,1], [1,1], [1,-1]];
+        const keys = [];
+        for (let dirIndex = 0; dirIndex < dirs.length; ++dirIndex) {
+          const [dr, dc] = dirs[dirIndex];
+          const cells = this.lineCellsThrough(row, col, dr, dc);
+          const chars = cells.map(c => this.cellCharForColor(c.row, c.col, color));
+          let isFourThreat = false;
+          for (let i = 0; i <= chars.length - 5 && !isFourThreat; ++i) {
+            const slice = chars.slice(i, i + 5);
+            const containsCenter = cells.slice(i, i + 5).some(c => c.center);
+            if (!containsCenter) continue;
+            const xs = slice.filter(ch => ch === 'X').length;
+            const es = slice.filter(ch => ch === '_').length;
+            if (xs >= 5 || (xs === 4 && es === 1)) isFourThreat = true;
+          }
+          if (isFourThreat) keys.push(this.lineKeyFor(row, col, dirIndex));
+        }
+        return [...new Set(keys)];
+      }
+
+      forcedForkShapeAfterPlaced(row, col, color) {
+        const fourLines = this.fourThreatLineKeysAtPlaced(row, col, color);
+        const liveThreeLines = this.liveThreeLineKeysAtPlaced(row, col, color).filter(k => !fourLines.includes(k));
+        let kind = null;
+        if (fourLines.length >= 2) kind = '4-4';
+        else if (liveThreeLines.length >= 2) kind = '3-3';
+        return { kind, fourLines, liveThreeLines };
+      }
+
+      isForbiddenMove(row, col, color) {
+        if (!this.isForbiddenRulesOn() || color !== BLACK) return false;
+        if (row < 0 || col < 0 || row >= BOARD_SIZE || col >= BOARD_SIZE) return false;
+        if (this.GetStoneColor(row, col) >= 0) return false;
+        this.SetStoneColor(row, col, color);
+        const overline = this.overlineAfterPlaced(row, col, color);
+        const shape = this.forcedForkShapeAfterPlaced(row, col, color);
+        this.SetStoneColor(row, col, UNSET);
+        return overline || shape.kind === '3-3' || shape.kind === '4-4';
+      }
+
+      forbiddenReason(row, col, color) {
+        if (!this.isForbiddenRulesOn() || color !== BLACK || this.GetStoneColor(row, col) >= 0) return '';
+        this.SetStoneColor(row, col, color);
+        const reasons = [];
+        if (this.overlineAfterPlaced(row, col, color)) reasons.push(tr('forbiddenOverline'));
+        const shape = this.forcedForkShapeAfterPlaced(row, col, color);
+        if (shape.kind === '3-3') reasons.push(tr('forbiddenDoubleThree'));
+        if (shape.kind === '4-4') reasons.push(tr('forbiddenDoubleFour'));
+        this.SetStoneColor(row, col, UNSET);
+        return reasons.join(', ');
+      }
+
+      Five() {
+        const directions = [[0,1], [1,0], [1,1], [1,-1]];
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            const color = this.GetStoneColor(row, col);
+            if (color < 0) continue;
+            for (const [dr, dc] of directions) {
+              let ok = true;
+              for (let k = 1; k < 5; ++k) {
+                const rr = row + dr * k;
+                const cc = col + dc * k;
+                if (rr < 0 || cc < 0 || rr >= BOARD_SIZE || cc >= BOARD_SIZE || this.GetStoneColor(rr, cc) !== color) {
+                  ok = false;
+                  break;
+                }
+              }
+              if (ok) {
+                if (this.isForbiddenRulesOn() && color === BLACK) {
+                  const beforeRow = row - dr, beforeCol = col - dc;
+                  const afterRow = row + dr * 5, afterCol = col + dc * 5;
+                  const beforeSame = beforeRow >= 0 && beforeCol >= 0 && beforeRow < BOARD_SIZE && beforeCol < BOARD_SIZE && this.GetStoneColor(beforeRow, beforeCol) === color;
+                  const afterSame = afterRow >= 0 && afterCol >= 0 && afterRow < BOARD_SIZE && afterCol < BOARD_SIZE && this.GetStoneColor(afterRow, afterCol) === color;
+                  if (beforeSame || afterSame) continue;
+                }
+                return color;
+              }
+            }
+          }
+        }
+        return -1;
+      }
+
+      render() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const gradient = ctx.createLinearGradient(0, 0, w, h);
+        gradient.addColorStop(0, '#e8b86a');
+        gradient.addColorStop(1, '#c88b38');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = '#3b2714';
+        ctx.lineWidth = 1.25;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < BOARD_SIZE; ++i) {
+          const p = this.margin + i * this.cell;
+          ctx.beginPath();
+          ctx.moveTo(this.margin, p);
+          ctx.lineTo(this.margin + (BOARD_SIZE - 1) * this.cell, p);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(p, this.margin);
+          ctx.lineTo(p, this.margin + (BOARD_SIZE - 1) * this.cell);
+          ctx.stroke();
+        }
+        this.drawCoordinates();
+        this.drawStar(7,7,5);
+        this.drawStar(3,3,4); this.drawStar(3,11,4); this.drawStar(11,3,4); this.drawStar(11,11,4);
+
+        if (this.showWeights) this.drawWeightOverlay();
+
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            const color = this.GetStoneColor(row, col);
+            if (color >= 0) this.drawStone(row, col, color);
+          }
+        }
+        this.drawLastMove();
+        if (this.showSteps) this.drawStepNumbers();
+        this.drawHoverPreview();
+        this.drawGameResultStamp();
+        this.canvas.classList.toggle('interactive', this.isHumanTurnInteractive());
+        this.updateMetrics();
+        this.updateTopWeights();
+      }
+
+      drawCoordinates() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.fillStyle = 'rgba(47, 29, 13, .78)';
+        ctx.font = 'bold 13px ui-sans-serif, system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < BOARD_SIZE; ++i) {
+          const p = this.margin + i * this.cell;
+          const letter = String.fromCharCode(65 + i);
+          const number = String(i + 1);
+          ctx.fillText(letter, p, this.margin * 0.42);
+          ctx.fillText(letter, p, this.canvas.height - this.margin * 0.42);
+          ctx.fillText(number, this.margin * 0.42, p);
+          ctx.fillText(number, this.canvas.width - this.margin * 0.42, p);
+        }
+        ctx.restore();
+      }
+
+      drawGameResultStamp() {
+        if (!this.endofGame || !this.gameResult) return;
+        const ctx = this.ctx;
+        let text = '';
+        if (this.gameResult.type === 'draw') {
+          text = tr('stampDraw');
+        } else {
+          const winner = this.gameResult.winner;
+          const blackPlayer = this.getPlayer(BLACK);
+          const whitePlayer = this.getPlayer(WHITE);
+          if (blackPlayer !== whitePlayer) {
+            const humanColor = blackPlayer === HUMAN ? BLACK : WHITE;
+            text = winner === humanColor ? tr('stampWin') : tr('stampLoss');
+          } else {
+            text = tr('wins', { color: this.colorName(winner) }).replace(/[！!。.]$/, '');
+          }
+        }
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, .38)';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '900 74px ui-sans-serif, system-ui';
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = 'rgba(255,255,255,.9)';
+        ctx.fillStyle = 'rgba(160, 36, 26, .95)';
+        ctx.strokeText(text, this.canvas.width / 2, this.canvas.height / 2);
+        ctx.fillText(text, this.canvas.width / 2, this.canvas.height / 2);
+        ctx.restore();
+      }
+
+      drawStar(row, col, radius) {
+        const ctx = this.ctx;
+        ctx.fillStyle = '#2f1d0d';
+        ctx.beginPath();
+        ctx.arc(this.margin + col * this.cell, this.margin + row * this.cell, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      drawHoverPreview() {
+        if (!this.hoverPointer || !this.isHumanTurnInteractive()) return;
+        const ctx = this.ctx;
+        const x = this.hoverPointer.x;
+        const y = this.hoverPointer.y;
+        const r = this.cell * 0.42;
+        const color = this.currentColor();
+        const target = this.hoverIntersection;
+        ctx.save();
+        // Cursor-style preview: follows the mouse smoothly instead of snapping between intersections.
+        ctx.globalAlpha = 0.70;
+        const g = ctx.createRadialGradient(x - r * .35, y - r * .38, r * .12, x, y, r);
+        if (color === BLACK) {
+          g.addColorStop(0, '#777'); g.addColorStop(.5, '#222'); g.addColorStop(1, '#000');
+        } else {
+          g.addColorStop(0, '#fff'); g.addColorStop(.65, '#f4f4ec'); g.addColorStop(1, '#cfcabf');
+        }
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 0.70;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = color === BLACK ? 'rgba(255,255,255,.45)' : 'rgba(0,0,0,.28)';
+        ctx.stroke();
+        // Small dot shows when the floating stone is close enough to a legal landing point.
+        if (target) {
+          const tx = this.margin + target.col * this.cell;
+          const ty = this.margin + target.row * this.cell;
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = color === BLACK ? 'rgba(255,255,255,.75)' : 'rgba(130, 38, 28, .75)';
+          ctx.beginPath();
+          ctx.arc(tx, ty, Math.max(3, this.cell * 0.08), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      drawStone(row, col, color) {
+        const ctx = this.ctx;
+        const x = this.margin + col * this.cell;
+        const y = this.margin + row * this.cell;
+        const r = this.cell * 0.42;
+        const g = ctx.createRadialGradient(x - r * .35, y - r * .38, r * .12, x, y, r);
+        if (color === BLACK) {
+          g.addColorStop(0, '#666'); g.addColorStop(.5, '#151515'); g.addColorStop(1, '#000');
+        } else {
+          g.addColorStop(0, '#fff'); g.addColorStop(.65, '#f1f1e8'); g.addColorStop(1, '#cfcabf');
+        }
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = color === BLACK ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.18)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      drawLastMove() {
+        if (!this.track.length) return;
+        const last = this.track[this.track.length - 1];
+        const row = Math.floor(last / BOARD_SIZE);
+        const col = last % BOARD_SIZE;
+        const x = this.margin + col * this.cell;
+        const y = this.margin + row * this.cell;
+        this.ctx.fillStyle = '#d61f1f';
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+
+      drawStepNumbers() {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = 0; i < this.track.length; ++i) {
+          const row = Math.floor(this.track[i] / BOARD_SIZE);
+          const col = this.track[i] % BOARD_SIZE;
+          const color = this.GetStoneColor(row, col);
+          if (color < 0) continue;
+          const x = this.margin + col * this.cell;
+          const y = this.margin + row * this.cell;
+          const label = String(i + 1);
+          ctx.font = (label.length >= 3 ? 'bold 10px' : 'bold 12px') + ' ui-sans-serif, system-ui';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = color === BLACK ? 'rgba(0,0,0,.65)' : 'rgba(255,255,255,.78)';
+          ctx.fillStyle = color === BLACK ? 'rgba(255,255,255,.96)' : 'rgba(20,20,20,.9)';
+          ctx.strokeText(label, x, y);
+          ctx.fillText(label, x, y);
+        }
+        ctx.restore();
+      }
+
+      drawWeightOverlay() {
+        let max = 0;
+        for (let r = 0; r < BOARD_SIZE; ++r) for (let c = 0; c < BOARD_SIZE; ++c) {
+          if (this.GetStoneColor(r, c) < 0 && !this.isForbiddenMove(r, c, this.currentColor())) max = Math.max(max, this.GetStoneWeight(r, c));
+        }
+        if (!max) return;
+        const ctx = this.ctx;
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            if (this.GetStoneColor(row, col) >= 0 || this.isForbiddenMove(row, col, this.currentColor())) continue;
+            const wt = this.GetStoneWeight(row, col);
+            if (wt <= 0) continue;
+            const x = this.margin + col * this.cell;
+            const y = this.margin + row * this.cell;
+            const alpha = Math.min(0.72, 0.12 + wt / max * 0.58);
+            ctx.fillStyle = `rgba(38, 103, 209, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(x, y, this.cell * (0.12 + 0.18 * wt / max), 0, Math.PI * 2);
+            ctx.fill();
+            if (wt >= max * .7) {
+              ctx.fillStyle = 'rgba(255,255,255,.95)';
+              ctx.font = 'bold 10px ui-sans-serif, system-ui';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(String(wt), x, y);
+            }
+          }
+        }
+      }
+
+      updateTopWeights() {
+        if (!this.showWeights) { this.topWeightsEl.innerHTML = ''; return; }
+        const items = [];
+        for (let row = 0; row < BOARD_SIZE; ++row) {
+          for (let col = 0; col < BOARD_SIZE; ++col) {
+            const weight = this.GetStoneWeight(row, col);
+            if (this.GetStoneColor(row, col) < 0 && weight > 0 && !this.isForbiddenMove(row, col, this.currentColor())) items.push({ row, col, weight });
+          }
+        }
+        items.sort((a, b) => b.weight - a.weight);
+        this.topWeightsEl.innerHTML = items.slice(0, 10).map(item =>
+          `<div><span>${this.coordName(item.row, item.col)}</span><strong>${item.weight}</strong></div>`
+        ).join('') || `<div>${tr('noCandidates')}</div>`;
+      }
+
+      updateMetrics() {
+        this.moveCountEl.textContent = String(this.track.length);
+        if (!this.track.length) { this.lastMoveEl.textContent = '—'; return; }
+        const last = this.track[this.track.length - 1];
+        this.lastMoveEl.textContent = this.coordName(Math.floor(last / BOARD_SIZE), last % BOARD_SIZE);
+      }
+
+      // Java-style API consumed by the ported Analyzer.java logic.
+      GetStones() { return this.stones; }
+      GetTrackSize() { return this.track.length; }
+      GetStoneColor(row, col) { return this.stones[row][col].GetColor(); }
+      SetStoneColor(row, col, color) { this.stones[row][col].SetColor(color); }
+      GetStoneWeight(row, col) { return this.stones[row][col].GetWeight(); }
+      SetStoneWeight(row, col, weight) { this.stones[row][col].SetWeight(weight); }
+      ReSetStoneWeight(row, col, weight) { this.stones[row][col].ReSetWeight(weight); }
+      AddToTrack(row, col) { this.track.push(row * BOARD_SIZE + col); }
+      SetEndofGame() { this.endofGame = true; }
+      ReSetEndofGame() { this.endofGame = false; }
+      IsEndofGame() { return this.endofGame; }
     }
-    if(!blocks.length){ apop(r,c,mk); zhp(r,c,ai); return pos; }
 
-    let allWin=true;
-    for(const bp of blocks){
-      const br=bp/N|0,bc=bp%N;
-      const mk2=aput(br,bc,hu); zhp(br,bc,hu);
-      const next=vcf(ai,depth-2);
-      apop(br,bc,mk2); zhp(br,bc,hu);
-      if(next<0){ allWin=false; break; }
-    }
-    apop(r,c,mk); zhp(r,c,ai);
-    if(allWin) return pos;
-  }
-  return -1;
-}
-
-// ─── 8. VCT Solver (Victory by Continuous Threats — 活三链强迫赢) ───
-// VCF only sees forced-four sequences. VCT also sees open-three chains:
-//   attacker creates open-three → opponent must block extension point
-//   → attacker creates another threat → ... → eventually double-four/open-four
-//
-// Key difference from VCF:
-//   VCF threats : moves creating any FOUR
-//   VCT threats : moves creating open-THREE or better
-//   VCT defenses: ALL extension/blocking points of current threat windows
-//                 + opponent's own counter-threats (so we can't ignore them)
-
-let vctDL=Infinity;
-
-// Moves that create open-three (type=4) or any four (5,6) for ai
-function getVCTThreats(ai){
-  const threats=[];
-  for(let p=0;p<N*N;p++){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    if(forbRule&&ai===1&&forbidden(board,r,c)) continue;
-    const mk=aput(r,c,ai);
-    const tc=ai===1?tc1:tc2;
-    if(tc[4]>0||tc[5]>0||tc[6]>0){
-      const[s1,s2]=getS();
-      threats.push([p,ai===1?s1:s2]);
-    }
-    apop(r,c,mk);
-  }
-  return threats.sort((a,b)=>b[1]-a[1]).slice(0,12).map(([p])=>p);
-}
-
-// Moves opponent must consider after ai created threats
-function getVCTDefenses(ai,hu){
-  const wt=ai===1?wt1:wt2;
-  const defs=new Set();
-
-  // 1. Opponent immediate wins trump everything
-  for(let p=0;p<N*N;p++){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    const mk=aput(r,c,hu);
-    const won=checkWin(board,r,c,hu);
-    apop(r,c,mk);
-    if(won) return[p]; // only this matters
-  }
-
-  // 2. Extension/blocking points of every active threat window (type≥4)
-  //    These are the cells where attacker would extend to a four, so
-  //    defender must consider playing there first.
-  for(let w=0;w<NW;w++){
-    if(wt[w]<4) continue;
-    const[r0,c0,dr,dc,lr,lc,rr,rc]=ALLW[w];
-    // Empty cells within the 5-cell window
-    for(let i=0;i<5;i++){
-      const np=(r0+dr*i)*N+(c0+dc*i);
-      if(b1d[np]===0) defs.add(np);
-    }
-    // Extension cells just outside the window
-    if(lr>=0&&lr<N&&lc>=0&&lc<N&&b1d[lr*N+lc]===0) defs.add(lr*N+lc);
-    if(rr>=0&&rr<N&&rc>=0&&rc<N&&b1d[rr*N+rc]===0) defs.add(rr*N+rc);
-  }
-
-  // 3. Opponent's own counter-threats (near existing stones)
-  //    Opponent might ignore our threat and play their own forcing move.
-  for(const p of genCands(2)){
-    if(defs.has(p)||b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    const mk=aput(r,c,hu);
-    const tc=hu===1?tc1:tc2;
-    if(tc[4]>0||tc[5]>0||tc[6]>0) defs.add(p);
-    apop(r,c,mk);
-  }
-
-  // 4. Filter: only keep defenses that actually reduce ai's threat count
-  //    OR create opponent's own threat (counter-attack).
-  //    Caps at 15 to prevent search explosion.
-  const threatsBefore=(ai===1?wt1:wt2).reduce((s,t)=>s+(t>=4?1:0),0);
-  const filtered=[];
-  for(const p of defs){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    const mk=aput(r,c,hu);
-    const threatsAfter=(ai===1?wt1:wt2).reduce((s,t)=>s+(t>=4?1:0),0);
-    const huTc=hu===1?tc1:tc2;
-    const huCounter=huTc[4]>0||huTc[5]>0||huTc[6]>0;
-    apop(r,c,mk);
-    if(threatsAfter<threatsBefore||huCounter) filtered.push(p);
-    if(filtered.length>=15) break;
-  }
-  return filtered;
-}
-
-function vct(ai,depth){
-  if(depth<=0||Date.now()>vctDL) return -1;
-  const hu=ai===1?2:1;
-
-  // VCF is strictly stronger — check it first at each node
-  const savedVcfDL=vcfDL;
-  vcfDL=Math.min(Date.now()+400,vctDL);
-  const vcfResult=vcf(ai,14);
-  vcfDL=savedVcfDL;
-  if(vcfResult>=0) return vcfResult;
-
-  const threats=getVCTThreats(ai);
-  for(const pos of threats){
-    if(Date.now()>vctDL) break;
-    const r=pos/N|0,c=pos%N;
-    const mk=aput(r,c,ai); zhp(r,c,ai);
-
-    // If we just created open-four or double-four → VCF can finish it
-    const tc=ai===1?tc1:tc2;
-    if(tc[6]>0||(tc[5]+tc[6])>=2){
-      apop(r,c,mk); zhp(r,c,ai);
-      return pos;
-    }
-
-    const defs=getVCTDefenses(ai,hu);
-    let allLose=defs.length>0;
-
-    for(const defPos of defs){
-      if(Date.now()>vctDL){allLose=false;break;}
-      if(b1d[defPos]) continue;
-      const dr2=defPos/N|0,dc2=defPos%N;
-      const mk2=aput(dr2,dc2,hu); zhp(dr2,dc2,hu);
-      const result=vct(ai,depth-1);
-      apop(dr2,dc2,mk2); zhp(dr2,dc2,hu);
-      if(result<0){allLose=false;break;}
-    }
-
-    apop(r,c,mk); zhp(r,c,ai);
-    if(allLose) return pos;
-  }
-  return -1;
-}
-
-// ─── 9. Quiescence search (negamax) ──────────────────────────────
-function qsearch(alpha,beta,stm,qdep){
-  const sp=evalStm(stm);
-  if(qdep<=0||Math.abs(sp)>=9000000) return sp;
-  if(sp>=beta) return sp;
-  if(sp>alpha) alpha=sp;
-  const hu=stm===1?2:1;
-  const[bS1,bS2]=getS(); const bMe=stm===1?bS1:bS2,bOp=stm===1?bS2:bS1;
-  const forceMvs=[];
-  for(const p of genCands(2)){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    let pri=-1;
-    const mk1=aput(r,c,stm);
-    const[as1,as2]=getS(); const myGain=(stm===1?as1:as2)-bMe;
-    apop(r,c,mk1);
-    if(myGain>=8000){ pri=myGain; } else {
-      const mk2=aput(r,c,hu);
-      const[hs1,hs2]=getS(); const opGain=(stm===1?hs2:hs1)-bOp;
-      apop(r,c,mk2);
-      if(opGain>=5000) pri=opGain;
-    }
-    if(pri>=0) forceMvs.push([p,pri]);
-  }
-  forceMvs.sort((a,b)=>b[1]-a[1]);
-  let best=sp;
-  for(const[p] of forceMvs.slice(0,6)){
-    const r=p/N|0,c=p%N;
-    const mk=aput(r,c,stm); zhp(r,c,stm);
-    const s=-qsearch(-beta,-alpha,hu,qdep-1);
-    apop(r,c,mk); zhp(r,c,stm);
-    if(s>best) best=s;
-    if(s>alpha) alpha=s;
-    if(alpha>=beta) break;
-  }
-  return best;
-}
-
-// ─── 9. PVS (Principal Variation Search, Negamax + TT + Killers) ─
-let searchDL=Infinity;
-let timedOut=false;
-
-function pvs(depth,alpha,beta,stm,ply){
-  if(Date.now()>searchDL){ timedOut=true; return alpha; }
-  const hu=stm===1?2:1;
-  const sp=evalStm(stm);
-  if(Math.abs(sp)>=9000000) return sp>0?9000000:-9000000;
-  if(depth===0) return qsearch(alpha,beta,stm,4);
-
-  // TT probe
-  const tts=ttGet(depth,alpha,beta);
-  if(tts!==null) return tts;
-  const ttm=ttMv();
-
-  // Generate and score moves
-  const cs=genCands(3);
-  const[bS1,bS2]=getS();
-  const bMe=stm===1?bS1:bS2,bOp=stm===1?bS2:bS1;
-  const mvs=[];
-  for(const p of cs){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    if(forbRule&&stm===1&&forbidden(board,r,c)) continue;
-    let pri=HT[p];
-    if(p===ttm) pri+=5000000;
-    if(ply<MAXPLY&&(p===KM[ply][0]||p===KM[ply][1])) pri+=1000000;
-    const mk1=aput(r,c,stm);
-    const[as1,as2]=getS(); const atkM=(stm===1?as1:as2)-bMe;
-    apop(r,c,mk1);
-    const mk2=aput(r,c,hu);
-    const[ds1,ds2]=getS(); const defM=(stm===1?ds2:ds1)-bOp;
-    apop(r,c,mk2);
-    pri+=atkM+defM*1.5+pBonus(p)*100;
-    mvs.push([p,pri]);
-  }
-  mvs.sort((a,b)=>b[1]-a[1]);
-  const lim=Math.min(mvs.length,depth>=8?8:depth>=6?10:depth>=4?12:16);
-
-  let best=-Infinity,bestMv=-1,flag=TU;
-  for(let i=0;i<lim;i++){
-    const[p]=mvs[i];
-    const r=p/N|0,c=p%N;
-    const mk=aput(r,c,stm); zhp(r,c,stm);
-    let s;
-    if(i===0){
-      s=-pvs(depth-1,-beta,-alpha,hu,ply+1);
-    } else {
-      s=-pvs(depth-1,-alpha-1,-alpha,hu,ply+1);
-      if(!timedOut&&s>alpha&&s<beta)
-        s=-pvs(depth-1,-beta,-alpha,hu,ply+1);
-    }
-    apop(r,c,mk); zhp(r,c,stm);
-    if(timedOut) break;
-    if(s>best){ best=s; bestMv=p; }
-    if(s>alpha){ alpha=s; flag=TE; }
-    if(alpha>=beta){
-      if(ply<MAXPLY&&p!==KM[ply][0]){KM[ply][1]=KM[ply][0];KM[ply][0]=p;}
-      HT[p]+=depth*depth;
-      if(HT[p]>500000) for(let j=0;j<N*N;j++) HT[j]>>=1;
-      flag=TL; break;
-    }
-  }
-  if(!timedOut&&bestMv>=0) ttSet(depth,best,flag,bestMv);
-  return best;
-}
-
-// ─── 10. Main AI entry point ──────────────────────────────────────
-function getAIMove(b_,ai,d){
-  syncBoard(); zhSync();
-  const hu=ai===1?2:1;
-  const maxD=DEPTH[d]||4;
-  const mc=hist.length;
-
-  // Opening book
-  if(mc===0) return[7,7];
-  if(mc===1){
-    for(const[dr,dc]of[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]){
-      const r=7+dr,c=7+dc;if(!board[r][c]) return[r,c];
-    }
-    return[7,7];
-  }
-
-  // Full-board immediate win/block scan (never miss a forced move)
-  for(let p=0;p<N*N;p++){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    if(forbRule&&ai===1&&forbidden(board,r,c)) continue;
-    const mk=aput(r,c,ai); const won=checkWin(board,r,c,ai); apop(r,c,mk);
-    if(won) return[r,c];
-  }
-  for(let p=0;p<N*N;p++){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    const mk=aput(r,c,hu); const won=checkWin(board,r,c,hu); apop(r,c,mk);
-    if(won) return[r,c];
-  }
-
-  // VCF: forced win by continuous fours
-  vcfDL=Date.now()+(d>=10?2000:d>=7?1000:500);
-  const vcfMove=vcf(ai,d>=10?18:d>=7?14:10);
-  if(vcfMove>=0) return[vcfMove/N|0,vcfMove%N];
-
-  // VCT: forced win by continuous threats (活三链 → 活四链)
-  // Finds sequences VCF misses: open-three → forced defense → another threat → ...
-  vctDL=Date.now()+(d>=10?2500:d>=7?1200:600);
-  const vctMove=vct(ai,d>=10?6:d>=7?4:3);
-  if(vctMove>=0) return[vctMove/N|0,vctMove%N];
-
-  // PVS Iterative Deepening
-  ttClr();
-  for(let i=0;i<MAXPLY;i++){KM[i][0]=KM[i][1]=-1;}
-  HT.fill(0);
-
-  const TIME=[0,0,0,0,0,0,0,0,0,3000,4000,8000,12000,18000,25000,30000];
-  const tlim=d<=8?Infinity:(isMobile?Math.min(TIME[d]||30000,4000):(TIME[d]||30000));
-  const t0=Date.now();
-  searchDL=t0+tlim;
-
-  // Pre-score root candidates
-  const rootCands=genCands(3);
-  const[bS1,bS2]=getS();
-  const bAi=ai===1?bS1:bS2,bHu=ai===1?bS2:bS1;
-  const rootMvs=[];
-  for(const p of rootCands){
-    if(b1d[p]) continue;
-    const r=p/N|0,c=p%N;
-    if(forbRule&&ai===1&&forbidden(board,r,c)) continue;
-    const mk1=aput(r,c,ai);
-    const[a1,a2]=getS(); const atkM=(ai===1?a1:a2)-bAi;
-    apop(r,c,mk1);
-    const mk2=aput(r,c,hu);
-    const[d1,d2]=getS(); const defM=(ai===1?d2:d1)-bHu;
-    apop(r,c,mk2);
-    rootMvs.push([p,atkM+defM*1.5+pBonus(p)*0.5]);
-  }
-  rootMvs.sort((a,b)=>b[1]-a[1]);
-
-  let bestPos=rootMvs[0]?rootMvs[0][0]:(rootCands[0]||7*N+7);
-
-  for(let dep=1;dep<=maxD;dep++){
-    const ela=Date.now()-t0;
-    if(tlim!==Infinity&&ela>tlim*0.80) break;
-
-    zhSync(); timedOut=false;
-    // Bring TT best move to front
-    const sorted=[...rootMvs];
-    const ttb=ttMv();
-    if(ttb>=0){const ti=sorted.findIndex(m=>m[0]===ttb);if(ti>0)sorted.unshift(sorted.splice(ti,1)[0]);}
-
-    const lim=Math.min(sorted.length,dep>=9?10:dep>=7?12:dep>=5?14:sorted.length);
-    let iterBest=-Infinity,iterPos=bestPos,anyDone=false;
-
-    for(let i=0;i<lim;i++){
-      const[p]=sorted[i];
-      const r=p/N|0,c=p%N;
-      const mk=aput(r,c,ai); zhp(r,c,ai);
-      const s=-pvs(dep-1,-Infinity,Infinity,hu,0);
-      apop(r,c,mk); zhp(r,c,ai);
-      if(timedOut) break;
-      anyDone=true;
-      if(s>iterBest){iterBest=s;iterPos=p;}
-    }
-    if(anyDone) bestPos=iterPos;
-    if(iterBest>=9000000) break;
-  }
-
-  return[bestPos/N|0,bestPos%N];
-}
-
-function doAI(){
-  if(isOver||curP!==aiCol) return;
-  thinking=true; updateStatus();
-  setTimeout(()=>{
-    const[r,c]=getAIMove(board,aiCol,diff);
-    thinking=false; doPlace(r,c,true);
-  },30);
-}
-
-
-self.onmessage=function(e){
-  const d=e.data;
-  if(d.type==='move'){
-    board=d.board.map(row=>[...row]);
-    forbRule=d.forbRule;
-    isMobile=d.isMobile;
-    hist={length:d.histLen};
-    const[r,c]=getAIMove(board,d.aiCol,d.diff);
-    self.postMessage({r,c});
-  }
-};
-</script>
+    new BrowserGame();
+  </script>
 </body>
 </html>
